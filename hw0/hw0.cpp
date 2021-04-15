@@ -8,7 +8,6 @@
 using namespace std;
 
 // Location of URDF files specifying world and robot information
-const string world_file = "./resources/world.urdf";
 const string robot_file = "./resources/rprbot.urdf";
 const string robot_name = "RPRBot";
 
@@ -21,8 +20,6 @@ const std::string JOINT_ANGLES_KEY  = "cs225a::robot::RPRbot::sensors::q";
 const std::string JOINT_VELOCITIES_KEY = "cs225a::robot::RPRbot::sensors::dq";
 
 int main() {
-	cout << "Loading URDF world model file: " << world_file << endl;
-
 	// Make sure redis-server is running at localhost with default port 6379
 	// start redis client
 	RedisClient redis_client = RedisClient();
@@ -71,7 +68,7 @@ int main() {
 	Eigen::VectorXd g(dof); // Empty Gravity Vector
 
 	robot->position(ee_position, ee_link_name, ee_pos_in_link);
-	cout << "end effector position (remember that 0,0,0 is the position of the last revolute joint, not the end effector)" << endl;
+	cout << "end effector position (remember that 0,0,0 is the position of the first revolute joint, not the end effector)" << endl;
 	cout << ee_position.transpose() << endl;
 
 	robot->Jv(ee_jacobian,ee_link_name,ee_pos_in_link); // Read jacobian into ee_jacobian

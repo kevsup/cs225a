@@ -88,8 +88,6 @@ int main() {
 	// cache variables
 	double last_cursorx, last_cursory;
 
-	redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q); 
-
 	// while window is open:
 	while (!glfwWindowShouldClose(window))
 	{
