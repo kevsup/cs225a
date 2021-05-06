@@ -16,18 +16,48 @@
 	    </visual>
 	</static_object>
 
+	<static_object name="cat">
+		<origin xyz="0 0 0" rpy="0 0 0" />
+	    <visual>
+	        <origin xyz="1.7 1.5 0" rpy="1.57 0 0" />
+	        <geometry>
+	            <mesh filename="./resources/../../../model/project_models/cat.obj" scale=".7 .7 .7"/>
+	        </geometry>
+	    </visual>
+	</static_object>
+
+	<static_object name="big_house">
+		<origin xyz="0 0 0" rpy="0 0 0" />
+	    <visual>
+	        <origin xyz="4 4 0" rpy="1.57 0 0" />
+	        <geometry>
+	            <mesh filename="./resources/../../../model/project_models/big_house.obj" scale=".009 .009 .009"/>
+	        </geometry>
+	    </visual>
+	</static_object>
+
+	<static_object name="tree">
+		<origin xyz="0 0 0" rpy="0 0 0" />
+	    <visual>
+	        <origin xyz="0 2.5 0" rpy="1.7 0 0" />
+	        <geometry>
+	            <mesh filename="./resources/../../../model/project_models/tree.obj" scale=".2 .2 .2"/>
+	        </geometry>
+	    </visual>
+	</static_object>
+
 	<light name="light1" type="directional">
-		<position xyz="2.0 2.0 2.0" />
+		<position xyz="4.0 4.0 4.0" />
 		<lookat xyz="0.0 0.0 0.0" />
 	</light>
 
 	<light name="light2" type="directional">
-		<position xyz="-2.0 -2.0 2.0" />
+		<position xyz="-4.0 -4.0 4.0" />
 		<lookat xyz="0.0 0.0 0.0" />
 	</light>
 
 	<camera name="camera_fixed">
-		<position xyz="2.0 -0.8 1.0" />
+		<position xyz="8.0 -3.2 4.0" /> 
 		<vertical xyz="0.0 0.0 1.0" />
 		<lookat xyz="0.0 0.0 0.5" />
 	</camera>
