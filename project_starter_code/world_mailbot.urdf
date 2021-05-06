@@ -6,6 +6,19 @@
 		<model dir="./resources" path="panda_arm_hand.urdf" name="panda_arm_hand" />
 	</robot>
 
+	<static_object name="mailtruck">
+		<origin xyz="0 0 0" rpy="0 0 0" />
+	    <visual>
+	        <origin xyz="-3.0 0 0" rpy="0 0 1.57" />
+	        <geometry>
+	            <mesh filename="./resources/../../../model/project_models/mailtruck.obj" scale="1.0 1.0 1.0"/>
+	        </geometry>
+	        <material>
+	        	<texture filename="./resources/../../../model/project_models/mailtruck.mtl"/>
+    		</material>
+	    </visual>
+	</static_object>
+
 	<static_object name="mailbox">
 		<origin xyz="0 0 0" rpy="0 0 0" />
 	    <visual>
