@@ -17,4 +17,4 @@ TARGET_LINK_LIBRARIES (simviz_project ${CS225A_COMMON_LIBRARIES} ${SAI2-PRIMITIV
 SET(APP_RESOURCE_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources)
 FILE(MAKE_DIRECTORY ${APP_RESOURCE_DIR})
 FILE(COPY world_iiwa.urdf world_panda.urdf world_panda_gripper.urdf world_mmp_panda.urdf world_mmp_panda_two_arm.urdf world_quad_1_arm.urdf world_quad_2_arm.urdf world_O2.urdf world_toro.urdf DESTINATION ${APP_RESOURCE_DIR})
-FILE(COPY kuka_iiwa.urdf panda_arm.urdf panda_arm_hand.urdf mmp_panda.urdf mmp_panda_two_arm.urdf quad_1_arm.urdf quad_2_arm.urdf Divebot_Hybrid.urdf toro.urdf DESTINATION ${APP_RESOURCE_DIR})
+FILE(COPY kuka_iiwa.urdf panda_arm.urdf panda_arm_hand.urdf mmp_panda.urdf mmp_panda_two_arm.urdf quad_1_arm.urdf quad_2_arm.urdf Divebot_Hybrid.urdf toro.urdf world_mailbot.urdf DESTINATION ${APP_RESOURCE_DIR})
