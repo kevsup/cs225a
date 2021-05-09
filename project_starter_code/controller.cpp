@@ -25,7 +25,7 @@ const string robot_file = "./resources/mmp_panda.urdf";
 #define POSORI_CONTROLLER     1
 //int state = POSORI_CONTROLLER;
 
-void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot);
+void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time);
 void moveArm(VectorXd xd, Matrix3d Rd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, Vector3d pos_in_link);
 void operationalSpaceMatrices(MatrixXd& Lambda, MatrixXd& Jbar, MatrixXd& N, const MatrixXd& task_jacobian, Sai2Model::Sai2Model* &robot);
 
@@ -121,6 +121,8 @@ int main() {
 	double start_time = timer.elapsedTime(); //secs
 	bool fTimerDidSleep = true;
 
+    double drive_time_init = start_time;
+
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
@@ -134,73 +136,83 @@ int main() {
 		robot->updateModel();
         switch (state) {
             case WAIT_FOR_BOX:
-                {
-                    // Action: driving
-                    VectorXd q_desired = initial_q;
-                    q_desired(0) = 6;
-                    moveTruck(q_desired,command_torques,robot);
+            {
+                // Action: driving
+                VectorXd q_desired = initial_q;
+                q_desired(0) = 6;
+                moveTruck(q_desired, command_torques, robot, time - drive_time_init);
 
-                    // Trigger: camera detects mailbox aka arrives at desired position
-                    //if ((robot->_q - q_desired).norm() < 1) {
-                    if ((robot->_q - q_desired).norm() < 1 
-                                    && robot->_dq.norm() < 0.01) {
-                        cout << "Truck has arrived!!!!" << endl;
-                        // get coordinates of mailbox using camera
-                        state = SCAN_FOR_BOX;
-                    }
-                    break;
+                /*
+                // maybe use pre-made joint space controller for this
+				joint_task->reInitializeTask();
+                N_prec.setIdentity();
+			    joint_task->updateTaskModel(N_prec);
+	            joint_task->_desired_position = q_desired;
+                joint_task->computeTorques(joint_task_torques);
+                command_torques = joint_task_torques;
+                */
+
+                // Trigger: camera detects mailbox aka arrives at desired position
+                //if ((robot->_q - q_desired).norm() < 1) {
+                if ((robot->_q - q_desired).norm() < 1 
+                                && robot->_dq.norm() < 0.01) {
+                    cout << "Truck has arrived!!!!" << endl;
+                    // get coordinates of mailbox using camera
+                    state = SCAN_FOR_BOX;
                 }
+                break;
+            }
             case SCAN_FOR_BOX:
-                {
+            {
 
                 cout << "Next: open box!!!!" << endl;
                 state = OPEN_BOX;
                 break;
-                }
+            }
             case OPEN_BOX:
-                {
-                    Vector3d xd = Vector3d(6, 0.5, 0.8);
-                    Matrix3d Rd;
-                    Rd << cos(M_PI/3),0,sin(M_PI/3),0,1,0,-sin(M_PI/3),0,cos(M_PI/3);
-                    moveArm(xd, Rd, command_torques, robot, control_point);
-                    Vector3d x;
-                    robot->position(x, "link7", control_point);
-                    cout << "x = " << x << endl;
-                    if ((x - xd).norm() < 0.1) {
-                        state = GRAB_MAIL;
-                        cout << "Next: grab mail!!!!" << endl;
-                    }
-                    break;
+            {
+                Vector3d xd = Vector3d(6, 0.5, 0.8);
+                Matrix3d Rd;
+                Rd << cos(M_PI/3),0,sin(M_PI/3),0,1,0,-sin(M_PI/3),0,cos(M_PI/3);
+                moveArm(xd, Rd, command_torques, robot, control_point);
+                Vector3d x;
+                robot->position(x, "link7", control_point);
+                if ((x - xd).norm() < 0.1) {
+                    state = GRAB_MAIL;
+                    cout << "Next: grab mail!!!!" << endl;
                 }
+                break;
+            }
             case GRAB_MAIL:
-                {
+            {
 
                 state = PLACE_MAIL;
                 break;
-                }
+            }
             case PLACE_MAIL:
-                {
+            {
 
                 state = CLOSE_BOX;
                 break;
-                }
+            }
             case CLOSE_BOX:
-                {
+            {
 
                 state = RETRACT_ARM;
                 break;
-                }
+            }
             case RETRACT_ARM:
-                {
-
+            {
+                
+                drive_time_init = time;
                 state = WAIT_FOR_BOX;
                 break;
-                }
+            }
             default:
-                {
+            {
                 //shouldn't be stateless
                 cout << "I am stateless :(" << endl;
-                }
+            }
         }
 
 /*	
@@ -262,14 +274,28 @@ int main() {
 	return 0;
 }
 
+double sat(double param) {
+    if (abs(param) > 1 && param > 0) {
+        return 1;
+    } else if (abs(param) > 1) {
+        return -1;
+    } else {
+        return param;
+    }
+}
 
-void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot) {
+void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time) {
     double kp = 100;
     double kv = 20;
     VectorXd g(robot->dof());
     robot->gravityVector(g);
     VectorXd b(robot->dof());
     robot->coriolisForce(b);
+    double V_max = 3;
+    double qd_mid = V_max * drive_time;
+    if (q_desired(0) > qd_mid) {
+        q_desired(0) = qd_mid;
+    }
     command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq) + b + g;  
 }
 
