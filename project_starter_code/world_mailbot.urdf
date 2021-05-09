@@ -6,23 +6,10 @@
 		<model dir="./resources" path="mmp_panda.urdf" name="mmp_panda" />
 	</robot>
 
-	<static_object name="mailtruck">
-		<origin xyz="0 0 0" rpy="0 0 0" />
-	    <visual>
-	        <origin xyz="-3.0 0 0" rpy="0 0 1.57" />
-	        <geometry>
-	            <mesh filename="./resources/../../../model/project_models/mailtruck.obj" scale="1.5 1.5 1.5"/>
-	        </geometry>
-	        <material>
-	        	<texture filename="./resources/../../../model/project_models/mailtruck.mtl"/>
-    		</material>
-	    </visual>
-	</static_object>
-
 	<static_object name="mailbox">
 		<origin xyz="0 0 0" rpy="0 0 0" />
 	    <visual>
-	        <origin xyz="0 0 0" rpy="1.57 0 3.14159" />
+	        <origin xyz="6 1 0" rpy="1.57 0 -1.57" />
 	        <geometry>
 	            <mesh filename="./resources/../../../model/project_models/mailbox.obj" scale="1.0 1.0 1.0"/>
 	        </geometry>
@@ -70,7 +57,7 @@
 	</light>
 
 	<camera name="camera_fixed">
-		<position xyz="6.0 -3.4 3.0" /> 
+		<position xyz="0.0 3.4 1.0" /> 
 		<vertical xyz="0.0 0.0 1.0" />
 		<lookat xyz="0.0 0.0 0.5" />
 	</camera>

@@ -18,7 +18,7 @@ void sighandler(int sig)
 using namespace std;
 using namespace Eigen;
 
-const string robot_file = "./resources/panda_arm_hand.urdf";
+const string robot_file = "./resources/mmp_panda.urdf";
 
 #define JOINT_CONTROLLER      0
 #define POSORI_CONTROLLER     1
@@ -70,7 +70,7 @@ int main() {
 
 	// pose task
 	const string control_link = "link7";
-	const Vector3d control_point = Vector3d(0,0,0.07);
+	const Vector3d control_point = Vector3d(6.0,0.0,0.07);
 	auto posori_task = new Sai2Primitives::PosOriTask(robot, control_link, control_point);
 
 #ifdef USING_OTG
@@ -99,7 +99,7 @@ int main() {
 	joint_task->_kv = 15.0;
 
 	VectorXd q_init_desired = initial_q;
-	q_init_desired << -30.0, -15.0, -15.0, -105.0, 0.0, 90.0, 45.0;
+	q_init_desired << 0.0, 0.0, 0.0, -30.0, -15.0, -15.0, -105.0, 0.0, 90.0, 45.0;
 	q_init_desired *= M_PI/180.0;
 	joint_task->_desired_position = q_init_desired;
 

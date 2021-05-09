@@ -38,8 +38,9 @@
     </inertial>
     <visual>
       <geometry>
-        <mesh filename="../../../model/mmp_panda/meshes/panda_BaseCombo.obj" />
+        <mesh filename="../../../model/project_models/mailtruck.obj" />
       </geometry>
+      <origin xyz="-0.2 -0.4 0.3" rpy="0 0 3.1416" />
     </visual>
   </link>
 
