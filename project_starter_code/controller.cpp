@@ -9,7 +9,7 @@
 
 #include <iostream>
 #include <string>
-#include <chrono> // pls
+#include <chrono>
 
 #include <signal.h>
 bool runloop = true;
@@ -26,7 +26,7 @@ const string robot_file = "./resources/mmp_panda.urdf";
 //int state = POSORI_CONTROLLER;
 
 void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time);
-void moveArm(VectorXd xd, Matrix3d Rd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, Vector3d pos_in_link);
+void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, Vector3d pos_in_link);
 void operationalSpaceMatrices(MatrixXd& Lambda, MatrixXd& Jbar, MatrixXd& N, const MatrixXd& task_jacobian, Sai2Model::Sai2Model* &robot);
 
 typedef enum {INIT, WAIT_FOR_BOX, SCAN_FOR_BOX, OPEN_BOX, GRAB_MAIL, PLACE_MAIL, CLOSE_BOX, RETRACT_ARM} States;
@@ -79,10 +79,10 @@ int main() {
 	// pose task
 	const string control_link = "link7";
 	const Vector3d control_point = Vector3d(0.0,0.0,0.07);
+
+/*
 	auto posori_task = new Sai2Primitives::PosOriTask(robot, control_link, control_point);
 
-    Vector3d p_desired = Vector3d(6, 0, 0);
-    posori_task->_desired_position = p_desired;
 
 #ifdef USING_OTG
 	posori_task->_use_interpolation_flag = true;
@@ -106,13 +106,18 @@ int main() {
 #endif
 
 	VectorXd joint_task_torques = VectorXd::Zero(dof);
-	joint_task->_kp = 250.0;
-	joint_task->_kv = 15.0;
+    joint_task->setDynamicDecouplingFull();
+    N_prec.setIdentity();
+    joint_task->updateTaskModel(N_prec);
+    joint_task->_use_velocity_saturation_flag = true;
+    joint_task->_saturation_velocity(0) = 100;
+    joint_task->_kp = 100.0;
+    joint_task->_kv = 20.0;
+    joint_task->_desired_position = q_desired;
+*/
 
-	VectorXd q_init_desired = initial_q;
-	q_init_desired << 0.0, 0.0, 0.0, -30.0, -15.0, -15.0, -105.0, 0.0, 90.0, 45.0;
-	q_init_desired *= M_PI/180.0;
-	joint_task->_desired_position = q_init_desired;
+    VectorXd q_desired = initial_q;
+    q_desired(0) = 6;
 
 	// create a timer
 	LoopTimer timer;
@@ -137,23 +142,22 @@ int main() {
         switch (state) {
             case WAIT_FOR_BOX:
             {
+                /*
+                // maybe use pre-made joint space controller for this, but I'm having bugs
+                joint_task->computeTorques(joint_task_torques);
+                command_torques = joint_task_torques;
+                cout << "kp = " << joint_task->_kp << endl;
+                cout << "sat = " << joint_task->_saturation_velocity<< endl;
+                cout << "JT Mass = " << joint_task->_M_modified<< endl;
+                cout << "Real Mass = " << robot->_M<< endl;
+                */
+
                 // Action: driving
-                VectorXd q_desired = initial_q;
+                q_desired = initial_q;
                 q_desired(0) = 6;
                 moveTruck(q_desired, command_torques, robot, time - drive_time_init);
 
-                /*
-                // maybe use pre-made joint space controller for this
-				joint_task->reInitializeTask();
-                N_prec.setIdentity();
-			    joint_task->updateTaskModel(N_prec);
-	            joint_task->_desired_position = q_desired;
-                joint_task->computeTorques(joint_task_torques);
-                command_torques = joint_task_torques;
-                */
-
                 // Trigger: camera detects mailbox aka arrives at desired position
-                //if ((robot->_q - q_desired).norm() < 1) {
                 if ((robot->_q - q_desired).norm() < 1 
                                 && robot->_dq.norm() < 0.01) {
                     cout << "Truck has arrived!!!!" << endl;
@@ -180,13 +184,29 @@ int main() {
                 if ((x - xd).norm() < 0.1) {
                     state = GRAB_MAIL;
                     cout << "Next: grab mail!!!!" << endl;
+                    q_desired = robot->_q;
                 }
                 break;
             }
             case GRAB_MAIL:
             {
-
-                state = PLACE_MAIL;
+                // basic joint space control w/ high gains
+                double kp = 400;
+                double kv = 40;
+                VectorXd g(robot->dof());
+                robot->gravityVector(g);
+                
+                q_desired(10) = 0;
+                q_desired(11) = 0;
+                command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq) + g;  
+               
+                // redefine state trigger later 
+                if ((robot->_q.tail<2>() - q_desired.tail<2>()).norm() < 0.1
+                                && robot->_dq.norm() < 0.01) {
+                    cout << "Gripper closed!!!!" << endl;
+                    state = PLACE_MAIL;
+                    q_desired = robot->_q;
+                }
                 break;
             }
             case PLACE_MAIL:
@@ -203,9 +223,10 @@ int main() {
             }
             case RETRACT_ARM:
             {
-                
+                // placeholder code. Keeps robot from looping through states
+                moveTruck(q_desired, command_torques, robot, time);
                 drive_time_init = time;
-                state = WAIT_FOR_BOX;
+                //state = WAIT_FOR_BOX;
                 break;
             }
             default:
@@ -284,6 +305,7 @@ double sat(double param) {
     }
 }
 
+// joint space control with velocity saturation
 void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time) {
     double kp = 100;
     double kv = 20;
@@ -291,7 +313,7 @@ void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Mod
     robot->gravityVector(g);
     VectorXd b(robot->dof());
     robot->coriolisForce(b);
-    double V_max = 3;
+    double V_max = 3;   // max velocity of 3 m/s
     double qd_mid = V_max * drive_time;
     if (q_desired(0) > qd_mid) {
         q_desired(0) = qd_mid;
@@ -300,7 +322,7 @@ void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Mod
 }
 
 // Rd is direction cosines
-void moveArm(VectorXd xd, Matrix3d Rd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, Vector3d pos_in_link) {
+void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, Vector3d pos_in_link) {
     string link_name = "link7";
     Vector3d x, x_dot;
     robot->position(x, link_name, pos_in_link);
@@ -365,3 +387,4 @@ void operationalSpaceMatrices(MatrixXd& Lambda, MatrixXd& Jbar, MatrixXd& N,
 	N = MatrixXd::Identity(7,7) - Jbar*task_jacobian;
 	N = N*N_prec;
 }
+
