@@ -21,6 +21,7 @@ using namespace Eigen;
 
 const string robot_file = "./resources/mmp_panda.urdf";
 
+
 #define JOINT_CONTROLLER      0
 #define POSORI_CONTROLLER     1
 //int state = POSORI_CONTROLLER;
@@ -95,26 +96,26 @@ int main() {
 	posori_task->_kv_pos = 20.0;
 	posori_task->_kp_ori = 200.0;
 	posori_task->_kv_ori = 20.0;
+*/
 
 	// joint task
 	auto joint_task = new Sai2Primitives::JointTask(robot);
 
 #ifdef USING_OTG
 	joint_task->_use_interpolation_flag = true;
+    cout << "using OTG" << endl;
 #else
 	joint_task->_use_velocity_saturation_flag = true;
+    cout << "not using OTG" << endl;
 #endif
 
 	VectorXd joint_task_torques = VectorXd::Zero(dof);
     joint_task->setDynamicDecouplingFull();
     N_prec.setIdentity();
     joint_task->updateTaskModel(N_prec);
-    joint_task->_use_velocity_saturation_flag = true;
     joint_task->_saturation_velocity(0) = 100;
     joint_task->_kp = 100.0;
     joint_task->_kv = 20.0;
-    joint_task->_desired_position = q_desired;
-*/
 
     VectorXd q_desired = initial_q;
     q_desired(0) = 6;
@@ -143,13 +144,12 @@ int main() {
             case WAIT_FOR_BOX:
             {
                 /*
-                // maybe use pre-made joint space controller for this, but I'm having bugs
+                // maybe use pre-made joint space controller for this, but need to remove USING_OTG
+                joint_task->updateTaskModel(N_prec);
+                joint_task->_desired_position = q_desired;
                 joint_task->computeTorques(joint_task_torques);
                 command_torques = joint_task_torques;
-                cout << "kp = " << joint_task->_kp << endl;
-                cout << "sat = " << joint_task->_saturation_velocity<< endl;
-                cout << "JT Mass = " << joint_task->_M_modified<< endl;
-                cout << "Real Mass = " << robot->_M<< endl;
+                //cout << "step_des_pos = " << joint_task->_step_desired_position << endl;
                 */
 
                 // Action: driving
@@ -193,12 +193,9 @@ int main() {
                 // basic joint space control w/ high gains
                 double kp = 400;
                 double kv = 40;
-                VectorXd g(robot->dof());
-                robot->gravityVector(g);
-                
                 q_desired(10) = 0;
                 q_desired(11) = 0;
-                command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq) + g;  
+                command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq);  
                
                 // redefine state trigger later 
                 if ((robot->_q.tail<2>() - q_desired.tail<2>()).norm() < 0.1
@@ -225,6 +222,7 @@ int main() {
             {
                 // placeholder code. Keeps robot from looping through states
                 moveTruck(q_desired, command_torques, robot, time);
+
                 drive_time_init = time;
                 //state = WAIT_FOR_BOX;
                 break;
@@ -309,8 +307,6 @@ double sat(double param) {
 void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time) {
     double kp = 100;
     double kv = 20;
-    VectorXd g(robot->dof());
-    robot->gravityVector(g);
     VectorXd b(robot->dof());
     robot->coriolisForce(b);
     double V_max = 3;   // max velocity of 3 m/s
@@ -318,7 +314,11 @@ void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Mod
     if (q_desired(0) > qd_mid) {
         q_desired(0) = qd_mid;
     }
-    command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq) + b + g;  
+
+    // note: simviz.cpp already adds gravity vector
+    //VectorXd g(robot->dof());
+    //robot->gravityVector(g);
+    command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq) + b;  
 }
 
 // Rd is direction cosines
@@ -334,8 +334,6 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &command_torques, Sai2Model::Sa
 
     MatrixXd J_bar, Lambda, N;
     operationalSpaceMatrices(Lambda, J_bar, N, J_bot, robot);
-    VectorXd g(robot->dof());
-    robot->gravityVector(g);
     Matrix3d R;
     robot->rotation(R, link_name);
     
@@ -356,7 +354,11 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &command_torques, Sai2Model::Sa
     F << Fv, Fw; 
     F = Lambda * F;
     command_torques << 0,0,0,J_bot.transpose() * F - N.transpose() * kvj * robot->_dq;
-    command_torques += g;
+
+    // note: simviz.cpp already adds gravity vector
+    //VectorXd g(robot->dof());
+    //robot->gravityVector(g);
+    //command_torques += g;
 }
 
 
