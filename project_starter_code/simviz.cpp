@@ -24,6 +24,7 @@ const string world_file = "./resources/world_mailbot.urdf";
 const string robot_file = "./resources/mmp_panda.urdf";
 const string robot_name = "mmp_panda";
 const string camera_name = "camera_fixed";
+// const string letter_file = "./resources/letter.urdf";
 
 // redis keys:
 // - write:
@@ -35,6 +36,7 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::cs225a::project::actuator
 RedisClient redis_client;
 
 // simulation function prototype
+// void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 
 // callback to print glfw errors
@@ -80,6 +82,9 @@ int main() {
 	auto robot = new Sai2Model::Sai2Model(robot_file, false);
 	robot->updateKinematics();
 
+	// auto letter = new Sai2Model::Sai2Model(letter_file, false);
+ //    letter->updateKinematics();
+
 	// load simulation world
 	auto sim = new Simulation::Sai2Simulation(world_file, false);
 	sim->setCollisionRestitution(0);
@@ -89,6 +94,10 @@ int main() {
 	sim->getJointPositions(robot_name, robot->_q);
 	sim->getJointVelocities(robot_name, robot->_dq);
 	robot->updateKinematics();
+
+	// sim->getJointPositions("letter", letter->_q);
+	// sim->getJointVelocities("letter", letter->_dq);
+	// letter->updateKinematics();
 
 	/*------- Set up visualization -------*/
 	// set up error callback
@@ -132,6 +141,7 @@ int main() {
 	glewInitialize();
 
 	fSimulationRunning = true;
+	// thread sim_thread(simulation, robot, letter, sim, ui_force_widget);
 	thread sim_thread(simulation, robot, sim, ui_force_widget);
 	
 	// while window is open:
@@ -141,6 +151,7 @@ int main() {
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
 		graphics->updateGraphics(robot_name, robot);
+		// graphics->updateGraphics("letter", letter);
 		graphics->render(camera_name, width, height);
 
 		// swap buffers
@@ -254,6 +265,7 @@ int main() {
 }
 
 //------------------------------------------------------------------------------
+// void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 
 	int dof = robot->dof();
@@ -303,9 +315,16 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UI
 		sim->getJointVelocities(robot_name, robot->_dq);
 		robot->updateModel();
 
+		// sim->getJointPositions("letter", letter->_q);
+		// sim->getJointVelocities("letter", letter->_dq);
+		// letter->updateModel();
+
 		// write new robot state to redis
 		redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
 		redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
+
+		// redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, letter->_q);
+		// redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, letter->_dq);
 
 		//update last time
 		last_time = curr_time;

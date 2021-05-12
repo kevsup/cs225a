@@ -42,6 +42,18 @@
       </geometry>
       <origin xyz="-0.2 -0.4 0.3" rpy="0 0 3.1416" />
     </visual>
+    <visual>
+      <geometry>
+        <mesh filename="../../../model/project_models/mailslot.obj" />
+      </geometry>
+      <origin xyz="-0.7 0 0.3" rpy="1.57 0 0" />
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="../../../model/project_models/mailslot.obj" />
+      </geometry>
+      <origin xyz="-0.7 0 0.3" rpy="1.57 0 0" />
+    </collision>
   </link>
 
   <!-- PANDA ARM LINKS --> 

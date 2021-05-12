@@ -55,12 +55,12 @@
           <mesh filename="../../../model/project_models/letter.obj"/>
         </geometry>
       </visual>
-      <visual>
+      <collision>
         <origin xyz=".14 .09 .008" rpy="0 0 0" />
         <geometry>
           <box size="0.28 0.18 0.016" />
         </geometry>
-      </visual>
+      </collision>
     </link>
     
     <joint name="joint1" type="prismatic">
