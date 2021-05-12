@@ -6,6 +6,11 @@
 		<model dir="./resources" path="mmp_panda.urdf" name="mmp_panda" />
 	</robot>
 
+	<robot name="letter">
+		<model dir="./resources" path="letter.urdf" name="letter" />
+		<origin xyz="0 2 0.593" rpy="1.57 1.57 0" />
+	</robot>
+
 	<static_object name="mailbox">
 		<origin xyz="0 0 0" rpy="0 0 0" />
 	    <visual>
