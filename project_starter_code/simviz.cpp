@@ -5,15 +5,15 @@
 #include <dynamics3d.h>
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
-
 #include <GLFW/glfw3.h> //must be loaded after loading opengl/glew
-
 #include "uiforce/UIForceWidget.h"
-
+#include <random>  // used for white-noise generation
 #include <iostream>
 #include <string>
-
+#include "force_sensor/ForceSensorSim.h"  // references src folder in sai2-common directory 
+#include "force_sensor/ForceSensorDisplay.h"
 #include <signal.h>
+
 bool fSimulationRunning = false;
 void sighandler(int){fSimulationRunning = false;}
 
@@ -24,20 +24,30 @@ const string world_file = "./resources/world_mailbot.urdf";
 const string robot_file = "./resources/mmp_panda.urdf";
 const string robot_name = "mmp_panda";
 const string camera_name = "camera_fixed";
-// const string letter_file = "./resources/letter.urdf";
+const string letter_file = "./resources/letter.urdf";
 
 // redis keys:
 // - write:
 const std::string JOINT_ANGLES_KEY = "sai2::cs225a::project::sensors::q";
 const std::string JOINT_VELOCITIES_KEY = "sai2::cs225a::project::sensors::dq";
+const std::string LETTER_JOINT_ANGLES_KEY = "sai2::cs225a::letter::sensors::q";
+const std::string LETTER_JOINT_VELOCITIES_KEY = "sai2::cs225a::letter::sensors::dq";
+// const std::string EE_FORCE_KEY = "sai2::cs225a::sensor::force";
+// const std::string EE_MOMENT_KEY = "sai2::cs225a::sensor::moment";
 // - read
 const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::cs225a::project::actuators::fgc";
 
 RedisClient redis_client;
 
+// force sensor
+// ForceSensorSim* force_sensor;
+
+// display widget for forces at end effector
+// ForceSensorDisplay* force_display;
+
 // simulation function prototype
-// void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
-void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
+void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
+// void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 
 // callback to print glfw errors
 void glfwError(int error, const char* description);
@@ -80,24 +90,26 @@ int main() {
 
 	// load robots
 	auto robot = new Sai2Model::Sai2Model(robot_file, false);
-	robot->updateKinematics();
+	// robot->updateModel();
 
-	// auto letter = new Sai2Model::Sai2Model(letter_file, false);
- //    letter->updateKinematics();
+	// load robot objects
+	auto letter = new Sai2Model::Sai2Model(letter_file, false);
+    // letter->updateModel();
 
 	// load simulation world
 	auto sim = new Simulation::Sai2Simulation(world_file, false);
-	sim->setCollisionRestitution(0);
+	sim->setCollisionRestitution(0.0);
 	sim->setCoeffFrictionStatic(0.6);
+	sim->setCoeffFrictionDynamic(0.5);
 
 	// read joint positions, velocities, update model
 	sim->getJointPositions(robot_name, robot->_q);
 	sim->getJointVelocities(robot_name, robot->_dq);
 	robot->updateKinematics();
 
-	// sim->getJointPositions("letter", letter->_q);
-	// sim->getJointVelocities("letter", letter->_dq);
-	// letter->updateKinematics();
+	sim->getJointPositions("letter", letter->_q);
+	sim->getJointVelocities("letter", letter->_dq);
+	letter->updateKinematics();
 
 	/*------- Set up visualization -------*/
 	// set up error callback
@@ -141,8 +153,8 @@ int main() {
 	glewInitialize();
 
 	fSimulationRunning = true;
-	// thread sim_thread(simulation, robot, letter, sim, ui_force_widget);
-	thread sim_thread(simulation, robot, sim, ui_force_widget);
+	thread sim_thread(simulation, robot, letter, sim, ui_force_widget);
+	// thread sim_thread(simulation, robot, sim, ui_force_widget);
 	
 	// while window is open:
 	while (!glfwWindowShouldClose(window) && fSimulationRunning)
@@ -151,7 +163,8 @@ int main() {
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
 		graphics->updateGraphics(robot_name, robot);
-		// graphics->updateGraphics("letter", letter);
+		graphics->updateGraphics("letter", letter);
+		// force_display->update();
 		graphics->render(camera_name, width, height);
 
 		// swap buffers
@@ -265,8 +278,8 @@ int main() {
 }
 
 //------------------------------------------------------------------------------
-// void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
-void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
+void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
+// void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 
 	int dof = robot->dof();
 	VectorXd command_torques = VectorXd::Zero(dof);
@@ -281,12 +294,14 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UI
 
 	// init variables
 	VectorXd g(dof);
-
 	Eigen::Vector3d ui_force;
 	ui_force.setZero();
-
 	Eigen::VectorXd ui_force_command_torques;
 	ui_force_command_torques.setZero();
+
+	// sensed forces and moments from sensor
+	// Eigen::Vector3d sensed_force;
+ //    Eigen::Vector3d sensed_moment;
 
 	while (fSimulationRunning) {
 		fTimerDidSleep = timer.waitForNextLoop();
@@ -315,16 +330,17 @@ void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UI
 		sim->getJointVelocities(robot_name, robot->_dq);
 		robot->updateModel();
 
-		// sim->getJointPositions("letter", letter->_q);
-		// sim->getJointVelocities("letter", letter->_dq);
-		// letter->updateModel();
+		sim->getJointPositions("letter", letter->_q);
+		sim->getJointVelocities("letter", letter->_dq);
+		letter->updateModel();
 
 		// write new robot state to redis
 		redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
 		redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
-
-		// redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, letter->_q);
-		// redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, letter->_dq);
+		redis_client.setEigenMatrixJSON(LETTER_JOINT_ANGLES_KEY, letter->_q);
+		redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
+		// redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
+		// redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
 
 		//update last time
 		last_time = curr_time;
