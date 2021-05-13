@@ -202,17 +202,21 @@ int main() {
                 // basic joint space control w/ high gains
                 double kp = 400;
                 double kv = 40;
-                q_desired(10) = 0;
-                q_desired(11) = 0;
+
+                // gripper has a bug :(
+                //q_desired(10) = 0;
+                //q_desired(11) = 0;
                 command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq);  
 
-                
+               
+                /* 
                 Matrix3d R;
                 robot->rotation(R, "link7");
                 cout << "R = " << R << endl;
                 Vector3d x;
                 robot->position(x, "link7", control_point);
                 cout << "x = " << x << endl;
+                */
                
                 // redefine state trigger later 
                 if ((robot->_q.tail<2>() - q_desired.tail<2>()).norm() < 0.1
@@ -371,9 +375,9 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques,
     VectorXd F(Fv.size() + Fw.size());
     F << Fv, Fw; 
     F = Lambda * F;
-    command_torques << 0,0,0,J_bot.transpose() * F - N.transpose() * kvj * robot->_dq.segment(3,9);
+    //command_torques << 0,0,0,J_bot.transpose() * F - N.transpose() * kvj * robot->_dq.segment(3,9);
     MatrixXd M7 = robot->_M.block(3,3,7,7);
-    command_torques << 0,0,0,J_bot.transpose() * F + N.transpose() * M7 * (-kpj * (robot->_q.segment(3,9) - qd) - kvj * robot->_dq.segment(3,9));
+    command_torques << 0,0,0,J_bot.transpose() * F + N.transpose() * M7 * (-kpj * (robot->_q.segment(3,9) - qd) - kvj * robot->_dq.segment(3,9)),0,0;
 
     // note: simviz.cpp already adds gravity vector
     //VectorXd g(robot->dof());
