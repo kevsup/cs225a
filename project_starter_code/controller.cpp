@@ -71,60 +71,60 @@ const bool inertia_regularization = true;
 
 int main() {
 
-	JOINT_ANGLES_KEY = "sai2::cs225a::project::sensors::q";
-	JOINT_VELOCITIES_KEY = "sai2::cs225a::project::sensors::dq";
-	JOINT_TORQUES_COMMANDED_KEY = "sai2::cs225a::project::actuators::fgc";
+    JOINT_ANGLES_KEY = "sai2::cs225a::project::sensors::q";
+    JOINT_VELOCITIES_KEY = "sai2::cs225a::project::sensors::dq";
+    JOINT_TORQUES_COMMANDED_KEY = "sai2::cs225a::project::actuators::fgc";
 
-	// start redis client
-	auto redis_client = RedisClient();
-	redis_client.connect();
+    // start redis client
+    auto redis_client = RedisClient();
+    redis_client.connect();
 
-	// set up signal handler
-	signal(SIGABRT, &sighandler);
-	signal(SIGTERM, &sighandler);
-	signal(SIGINT, &sighandler);
+    // set up signal handler
+    signal(SIGABRT, &sighandler);
+    signal(SIGTERM, &sighandler);
+    signal(SIGINT, &sighandler);
 
-	// load robots
-	auto robot = new Sai2Model::Sai2Model(robot_file, false);
-	robot->_q = redis_client.getEigenMatrixJSON(JOINT_ANGLES_KEY);
-	VectorXd initial_q = robot->_q;
-	robot->updateModel();
+    // load robots
+    auto robot = new Sai2Model::Sai2Model(robot_file, false);
+    robot->_q = redis_client.getEigenMatrixJSON(JOINT_ANGLES_KEY);
+    VectorXd initial_q = robot->_q;
+    robot->updateModel();
 
-	// prepare controller
-	int dof = robot->dof();
-	VectorXd command_torques = VectorXd::Zero(dof);
-	MatrixXd N_prec = MatrixXd::Identity(dof, dof);
+    // prepare controller
+    int dof = robot->dof();
+    VectorXd command_torques = VectorXd::Zero(dof);
+    MatrixXd N_prec = MatrixXd::Identity(dof, dof);
 
 /*
-	// pose task
-	auto posori_task = new Sai2Primitives::PosOriTask(robot, CONTROL_LINK, CONTROL_POINT);
+    // pose task
+    auto posori_task = new Sai2Primitives::PosOriTask(robot, CONTROL_LINK, CONTROL_POINT);
 
 
 #ifdef USING_OTG
-	posori_task->_use_interpolation_flag = true;
+    posori_task->_use_interpolation_flag = true;
 #else
-	posori_task->_use_velocity_saturation_flag = true;
+    posori_task->_use_velocity_saturation_flag = true;
 #endif
-	
-	VectorXd posori_task_torques = VectorXd::Zero(dof);
-	posori_task->_kp_pos = 200.0;
-	posori_task->_kv_pos = 20.0;
-	posori_task->_kp_ori = 200.0;
-	posori_task->_kv_ori = 20.0;
+    
+    VectorXd posori_task_torques = VectorXd::Zero(dof);
+    posori_task->_kp_pos = 200.0;
+    posori_task->_kv_pos = 20.0;
+    posori_task->_kp_ori = 200.0;
+    posori_task->_kv_ori = 20.0;
 */
 
-	// joint task
-	auto joint_task = new Sai2Primitives::JointTask(robot);
+    // joint task
+    auto joint_task = new Sai2Primitives::JointTask(robot);
 
 #ifdef USING_OTG
-	joint_task->_use_interpolation_flag = true;
+    joint_task->_use_interpolation_flag = true;
     cout << "using OTG" << endl;
 #else
-	joint_task->_use_velocity_saturation_flag = true;
+    joint_task->_use_velocity_saturation_flag = true;
     cout << "not using OTG" << endl;
 #endif
 
-	VectorXd joint_task_torques = VectorXd::Zero(dof);
+    VectorXd joint_task_torques = VectorXd::Zero(dof);
     joint_task->setDynamicDecouplingFull();
     N_prec.setIdentity();
     joint_task->updateTaskModel(N_prec);
@@ -135,27 +135,27 @@ int main() {
     VectorXd q_desired = initial_q;
     q_desired(0) = 6;
 
-	// create a timer
-	LoopTimer timer;
-	timer.initializeTimer();
-	timer.setLoopFrequency(1000); 
-	double start_time = timer.elapsedTime(); //secs
-	bool fTimerDidSleep = true;
+    // create a timer
+    LoopTimer timer;
+    timer.initializeTimer();
+    timer.setLoopFrequency(1000); 
+    double start_time = timer.elapsedTime(); //secs
+    bool fTimerDidSleep = true;
 
     double drive_time_init = start_time;
     double grip_time_init;
 
-	while (runloop) {
-		// wait for next scheduled loop
-		timer.waitForNextLoop();
-		double time = timer.elapsedTime() - start_time;
+    while (runloop) {
+        // wait for next scheduled loop
+        timer.waitForNextLoop();
+        double time = timer.elapsedTime() - start_time;
 
-		// read robot state from redis
-		robot->_q = redis_client.getEigenMatrixJSON(JOINT_ANGLES_KEY);
-		robot->_dq = redis_client.getEigenMatrixJSON(JOINT_VELOCITIES_KEY);
+        // read robot state from redis
+        robot->_q = redis_client.getEigenMatrixJSON(JOINT_ANGLES_KEY);
+        robot->_dq = redis_client.getEigenMatrixJSON(JOINT_VELOCITIES_KEY);
 
-		// update model
-		robot->updateModel();
+        // update model
+        robot->updateModel();
         switch (state) {
             case WAIT_FOR_BOX:
             {
@@ -227,63 +227,63 @@ int main() {
             }
         }
 
-/*	
-		if(state == JOINT_CONTROLLER)
-		{
-			// update task model and set hierarchy
-			N_prec.setIdentity();
-			joint_task->updateTaskModel(N_prec);
+/*  
+        if(state == JOINT_CONTROLLER)
+        {
+            // update task model and set hierarchy
+            N_prec.setIdentity();
+            joint_task->updateTaskModel(N_prec);
 
-			// compute torques
-			joint_task->computeTorques(joint_task_torques);
+            // compute torques
+            joint_task->computeTorques(joint_task_torques);
 
-			command_torques = joint_task_torques;
+            command_torques = joint_task_torques;
 
-			if( (robot->_q - q_init_desired).norm() < 0.15 )
-			{
-				posori_task->reInitializeTask();
-				posori_task->_desired_position += Vector3d(-0.1,0.1,0.1);
-				posori_task->_desired_orientation = AngleAxisd(M_PI/6, Vector3d::UnitX()).toRotationMatrix() * posori_task->_desired_orientation;
+            if( (robot->_q - q_init_desired).norm() < 0.15 )
+            {
+                posori_task->reInitializeTask();
+                posori_task->_desired_position += Vector3d(-0.1,0.1,0.1);
+                posori_task->_desired_orientation = AngleAxisd(M_PI/6, Vector3d::UnitX()).toRotationMatrix() * posori_task->_desired_orientation;
 
-				joint_task->reInitializeTask();
-				joint_task->_kp = 0;
+                joint_task->reInitializeTask();
+                joint_task->_kp = 0;
 
-				state = POSORI_CONTROLLER;
-			}
-		}
+                state = POSORI_CONTROLLER;
+            }
+        }
 
-		else if(state == POSORI_CONTROLLER)
-		{
-			// update task model and set hierarchy
-			N_prec.setIdentity();
-			posori_task->updateTaskModel(N_prec);
-			N_prec = posori_task->_N;
-			joint_task->updateTaskModel(N_prec);
+        else if(state == POSORI_CONTROLLER)
+        {
+            // update task model and set hierarchy
+            N_prec.setIdentity();
+            posori_task->updateTaskModel(N_prec);
+            N_prec = posori_task->_N;
+            joint_task->updateTaskModel(N_prec);
 
-			// compute torques
-			posori_task->computeTorques(posori_task_torques);
-			joint_task->computeTorques(joint_task_torques);
+            // compute torques
+            posori_task->computeTorques(posori_task_torques);
+            joint_task->computeTorques(joint_task_torques);
 
-			//command_torques = posori_task_torques + joint_task_torques;
-			command_torques = posori_task_torques;
+            //command_torques = posori_task_torques + joint_task_torques;
+            command_torques = posori_task_torques;
             for (int i = 1; i < 11; i++) command_torques(i) = 0;
             cout << command_torques << endl;
-		}
+        }
 */
 
-		// send to redis
-		redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+        // send to redis
+        redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 
-		controller_counter++;
-	}
+        controller_counter++;
+    }
 
-	double end_time = timer.elapsedTime();
+    double end_time = timer.elapsedTime();
     std::cout << "\n";
     std::cout << "Controller Loop run time  : " << end_time << " seconds\n";
     std::cout << "Controller Loop updates   : " << timer.elapsedCycles() << "\n";
     std::cout << "Controller Loop frequency : " << timer.elapsedCycles()/end_time << "Hz\n";
 
-	return 0;
+    return 0;
 }
 
 void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q) {
@@ -482,21 +482,21 @@ void operationalSpaceMatrices(MatrixXd& Lambda, MatrixXd& Jbar, MatrixXd& N,
 {
     MatrixXd N_prec = MatrixXd::Identity(ARM_JTS, ARM_JTS);
 
-	// resize matrices
-	int k = task_jacobian.rows();
-	Lambda.setZero(k,k);
-	Jbar.setZero(ARM_JTS,k);
-	N.setIdentity(ARM_JTS, ARM_JTS);
+    // resize matrices
+    int k = task_jacobian.rows();
+    Lambda.setZero(k,k);
+    Jbar.setZero(ARM_JTS,k);
+    N.setIdentity(ARM_JTS, ARM_JTS);
 
     MatrixXd _M_inv = robot->_M_inv.block(TRUCK_JTS, TRUCK_JTS, ARM_JTS, ARM_JTS);
 
-	// Compute the matrices
-	MatrixXd inv_inertia = task_jacobian*_M_inv*task_jacobian.transpose();
-	Lambda = inv_inertia.llt().solve(MatrixXd::Identity(k,k));
-	Jbar = _M_inv*task_jacobian.transpose()*Lambda;
-	MatrixXd Ni = MatrixXd::Identity(ARM_JTS, ARM_JTS);
-	N = MatrixXd::Identity(ARM_JTS, ARM_JTS) - Jbar*task_jacobian;
-	N = N*N_prec;
+    // Compute the matrices
+    MatrixXd inv_inertia = task_jacobian*_M_inv*task_jacobian.transpose();
+    Lambda = inv_inertia.llt().solve(MatrixXd::Identity(k,k));
+    Jbar = _M_inv*task_jacobian.transpose()*Lambda;
+    MatrixXd Ni = MatrixXd::Identity(ARM_JTS, ARM_JTS);
+    N = MatrixXd::Identity(ARM_JTS, ARM_JTS) - Jbar*task_jacobian;
+    N = N*N_prec;
 }
 
 bool moveGripperToParcel(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold) {
