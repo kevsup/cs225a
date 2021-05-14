@@ -7,6 +7,8 @@
 #include "timer/LoopTimer.h"
 #include "Sai2Primitives.h"
 
+#include "project_constants.h"
+
 #include <iostream>
 #include <string>
 #include <chrono>
@@ -18,8 +20,6 @@ void sighandler(int sig)
 
 using namespace std;
 using namespace Eigen;
-
-const string robot_file = "./resources/mmp_panda.urdf";
 
 
 #define JOINT_CONTROLLER      0
@@ -35,10 +35,6 @@ bool moveGripperToParcel(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q
 bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold, bool gripped);
 
 
-typedef enum {INIT, WAIT_FOR_BOX, SCAN_FOR_BOX, OPEN_BOX, GRAB_MAIL, PLACE_MAIL, CLOSE_BOX, RETRACT_ARM} States;
-typedef enum {MOVE_OVERHEAD, DROP_DOWN, GRIP_PARCEL} MailStates;
-typedef enum {FRONT, INSIDE, RELEASE, BACKOUT} PlaceStates;
-
 States state = WAIT_FOR_BOX;
 MailStates mail_state = MOVE_OVERHEAD;
 PlaceStates place_state = FRONT;
@@ -47,18 +43,15 @@ PlaceStates place_state = FRONT;
 const int TRUCK_JTS = 3;    // number of truck joints   
 const int ARM_JTS = 7;      // number of arm joints
 const int GRIP_JTS = 2;     // number of gripper joints
-const double MAX_TRUCK_VEL = 3;
+const double MAX_TRUCK_VEL = 2;
+const double MAX_ARM_VEL = 1;
 
 const string CONTROL_LINK= "link7";
 const Vector3d CONTROL_POINT = Vector3d(0.0,0.0,0.07);
 
-// redis keys:
-// - read:
-std::string JOINT_ANGLES_KEY;
-std::string JOINT_VELOCITIES_KEY;
+    /*
 std::string JOINT_TORQUES_SENSED_KEY;
-// - write
-std::string JOINT_TORQUES_COMMANDED_KEY;
+*/
 
 // - model
 std::string MASSMATRIX_KEY;
@@ -70,11 +63,6 @@ unsigned long long controller_counter = 0;
 const bool inertia_regularization = true;
 
 int main() {
-
-    JOINT_ANGLES_KEY = "sai2::cs225a::project::sensors::q";
-    JOINT_VELOCITIES_KEY = "sai2::cs225a::project::sensors::dq";
-    JOINT_TORQUES_COMMANDED_KEY = "sai2::cs225a::project::actuators::fgc";
-
     // start redis client
     auto redis_client = RedisClient();
     redis_client.connect();
@@ -273,6 +261,9 @@ int main() {
 
         // send to redis
         redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+        VectorXd state_vector(1);
+        state_vector << (state == PLACE_MAIL && place_state == BACKOUT ? place_state : state);
+        redis_client.setEigenMatrixJSON(ROBOT_STATE, state_vector);
 
         controller_counter++;
     }
@@ -300,7 +291,7 @@ void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vec
         }
         case DROP_DOWN:
         {
-            Vector3d xd = Vector3d(5.4, 0, 0.6);
+            Vector3d xd = Vector3d(5.4, 0, 0.62);
             if (moveGripperToParcel(xd, robot, q_desired, command_torques, initial_q, 0.01)) {
                 mail_state = GRIP_PARCEL;
                 q_desired = robot->_q;
@@ -350,7 +341,7 @@ void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Ve
     switch (place_state) {
         case FRONT:
         {
-            Vector3d xd = Vector3d(6.15, -0.1, 0.7);
+            Vector3d xd = Vector3d(6.15, -0.1, 0.66);
             if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 1, true)) {
                 place_state = INSIDE;
                 q_desired = robot->_q;
@@ -360,7 +351,7 @@ void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Ve
         }
         case INSIDE:
         {
-            Vector3d xd = Vector3d(6.15, 0.2, 0.7);
+            Vector3d xd = Vector3d(6.15, 0.35, 0.66);
             if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, true)) {
                 place_state = RELEASE;
                 q_desired = robot->_q;
@@ -427,8 +418,8 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques,
     double kv = 20;
     double kpj = 200;   // for posture / joint space control
     double kvj = 50;
-    double kpg = 900;   // for gripper
-    double kvg = 60;
+    double kpg = 2500;   // for gripper
+    double kvg = 100;
 
     Vector3d x, x_dot;
     robot->position(x, CONTROL_LINK, CONTROL_POINT);
@@ -452,7 +443,13 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques,
     Vector3d omega;
     robot->angularVelocity(omega, CONTROL_LINK);
 
-    VectorXd Fv = kp * (xd - x) - kv * x_dot;
+    // velocity saturation
+    Vector3d x_dot_d = kp / kv * (xd - x);
+    double param = MAX_ARM_VEL / x_dot_d.norm();
+    double v_sat = abs(param) > 1 ? param / abs(param) : param;
+    VectorXd Fv = -kv *(x_dot - v_sat * x_dot_d);
+
+    //VectorXd Fv = kp * (xd - x) - kv * x_dot;
     VectorXd Fw = kp * (-d_phi) - kv * omega;
     VectorXd F(Fv.size() + Fw.size());
     F << Fv, Fw; 

@@ -2,78 +2,98 @@
 
 <world name="demo_world" gravity="0.0 0.0 -9.81">
 
-	<robot name="mmp_panda">
-		<model dir="./resources" path="mmp_panda.urdf" name="mmp_panda" />
-	</robot>
+    <robot name="mmp_panda">
+        <model dir="./resources" path="mmp_panda.urdf" name="mmp_panda" />
+    </robot>
 
-	<robot name="letter">
-		<model dir="./resources" path="letter.urdf" name="letter" />
-		<origin xyz="-0.55 0 1.8" rpy="-1.57 1.57 0" />
-	</robot>
+    <robot name="letter">
+        <model dir="./resources" path="letter.urdf" name="letter" />
+        <origin xyz="-0.55 0 1.8" rpy="-1.57 1.57 0" />
+    </robot>
 
-	<static_object name="mailbox">
-		<origin xyz="0 0 0" rpy="0 0 0" />
-	    <visual>
-	        <origin xyz="6 1 -0.3" rpy="1.57 0 -1.57" />
-	        <geometry>
-	            <mesh filename="./resources/../../../model/project_models/mailbox.obj" scale="1.0 1.0 1.0"/>
-	        </geometry>
-	    </visual>
+    <static_object name="mailbox">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <visual>
+            <origin xyz="6 1 -0.3" rpy="1.57 0 -1.57" />
+            <geometry>
+                <mesh filename="./resources/../../../model/project_models/mailbox.obj" scale="1.0 1.0 1.0"/>
+            </geometry>
+        </visual>
       <collision>
-        <origin xyz="6.1 0.7 0.52" rpy="0 0 0" />
+        <origin xyz="6.1 0.6 0.52" rpy="0 0 0" />
         <geometry>
           <box size="0.3 0.5 0.005" />
         </geometry>
       </collision>
-	</static_object>
+    </static_object>
 
-	<static_object name="cat">
-		<origin xyz="0 0 0" rpy="0 0 0" />
-	    <visual>
-	        <origin xyz="5 1.5 0" rpy="1.57 0 0" />
-	        <geometry>
-	            <mesh filename="./resources/../../../model/project_models/cat.obj" scale=".7 .7 .7"/>
-	        </geometry>
-	    </visual>
-	</static_object>
+    <static_object name="boxwall1">
+        <collision>
+        <origin xyz="6.01 0.6 0.68" rpy="0 0 0" />
+        <geometry>
+          <box size="0.005 0.5 0.3" />
+        </geometry>
+        </collision>
+    </static_object>
 
-	<static_object name="big_house">
-		<origin xyz="0 0 0" rpy="0 0 0" />
-	    <visual>
-	        <origin xyz="4 4 0" rpy="1.57 0 0" />
-	        <geometry>
-	            <mesh filename="./resources/../../../model/project_models/big_house.obj" scale=".009 .009 .009"/>
-	        </geometry>
-	    </visual>
-	</static_object>
+    <static_object name="boxwall2">
+        <collision>
+        <origin xyz="6.24 0.6 0.68" rpy="0 0 0" />
+        <geometry>
+          <box size="0.005 0.5 0.3" />
+        </geometry>
+        </collision>
+    </static_object>
 
-	<static_object name="tree">
-		<origin xyz="0 0 0" rpy="0 0 0" />
-	    <visual>
-	        <origin xyz="0 2.5 0" rpy="1.7 0 0" />
-	        <geometry>
-	            <mesh filename="./resources/../../../model/project_models/tree.obj" scale=".2 .2 .2"/>
-	        </geometry>
-	    </visual>
-	</static_object>
+    <static_object name="cat">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <visual>
+            <origin xyz="5 1.5 0" rpy="1.57 0 0" />
+            <geometry>
+                <mesh filename="./resources/../../../model/project_models/cat.obj" scale=".7 .7 .7"/>
+            </geometry>
+        </visual>
+    </static_object>
 
-	<light name="light1" type="directional">
-		<position xyz="4.0 4.0 4.0" />
-		<lookat xyz="0.0 0.0 0.0" />
-	</light>
+    <static_object name="big_house">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <visual>
+            <origin xyz="4 4 0" rpy="1.57 0 0" />
+            <geometry>
+                <mesh filename="./resources/../../../model/project_models/big_house.obj" scale=".009 .009 .009"/>
+            </geometry>
+        </visual>
+    </static_object>
 
-	<light name="light2" type="directional">
-		<position xyz="-4.0 -4.0 4.0" />
-		<lookat xyz="0.0 0.0 0.0" />
-	</light>
+    <static_object name="tree">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <visual>
+            <origin xyz="0 2.5 0" rpy="1.7 0 0" />
+            <geometry>
+                <mesh filename="./resources/../../../model/project_models/tree.obj" scale=".2 .2 .2"/>
+            </geometry>
+        </visual>
+    </static_object>
 
-	<camera name="camera_fixed">
-		<!-- this is good for seeing full car <position xyz="6.4 2 1.5" /> -->
+    <light name="light1" type="directional">
+        <position xyz="4.0 4.0 4.0" />
+        <lookat xyz="0.0 0.0 0.0" />
+    </light>
 
-		<!-- this is good for seeing close up of arm -->
-        <position xyz="5 1 1" /> 
-		<vertical xyz="0.0 0.0 1.0" />
-		<lookat xyz="6.0 0.0 0.5" />
-	</camera>
+    <light name="light2" type="directional">
+        <position xyz="-4.0 -4.0 4.0" />
+        <lookat xyz="0.0 0.0 0.0" />
+    </light>
+
+    <camera name="camera_fixed">
+        <!-- this is good for seeing full car <position xyz="6.4 2 1.5" /> -->
+
+        <!-- this is good for seeing close up of arm -->
+        <position xyz="5 1 1" />
+        <!--  <position xyz="0 2 1" /> -->
+        <vertical xyz="0.0 0.0 1.0" />
+        <lookat xyz="6.0 0.0 0.5" />
+        <!-- <lookat xyz="0 0.0 0.5" /> -->
+    </camera>
 
 </world>
