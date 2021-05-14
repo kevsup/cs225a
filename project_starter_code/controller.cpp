@@ -516,7 +516,7 @@ bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_de
     Matrix3d Rd;
     Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
     Matrix3d rot;
-    rot << 0, -1, 0, 0, 0, -1, 1, 0, 0;
+    rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
     Rd = rot * Rd;
     if (gripped) {
         q_desired << q_desired.head(TRUCK_JTS), initial_q.segment(TRUCK_JTS, ARM_JTS), 0, 0;
