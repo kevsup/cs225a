@@ -61,29 +61,29 @@
           <box size="0.2 0.13 0.011"/>
         </geometry>
       </collision>
-<!--      <collision>
+     <collision>
         <origin xyz=".14 .09 .8" rpy="0 0 0" />
         <geometry>
           <box size="0.28 0.18 0.016" />
         </geometry>
-      </collision> -->
+      </collision>
     </link>
     
-    <joint name="joint1" type="revolute">
+    <joint name="joint1" type="prismatic">
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <parent link="link0"/>
       <child link="link1"/>
       <axis xyz="0 0 1"/>
       <limit effort="21.3" lower="-100" upper="100" velocity="21.3"/>
     </joint>
-    <joint name="joint2" type="revolute">
+    <joint name="joint2" type="prismatic">
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <parent link="link1"/>
       <child link="link2"/>
       <axis xyz="0 1 0"/>
       <limit effort="21.3" lower="-100" upper="100" velocity="21.3"/>
     </joint>
-    <joint name="joint3" type="revolute">
+    <joint name="joint3" type="prismatic">
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <parent link="link2"/>
       <child link="link3"/>

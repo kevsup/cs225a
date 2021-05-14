@@ -42,40 +42,84 @@
       </geometry>
       <origin xyz="-0.2 -0.4 0.3" rpy="0 0 3.1416" />
     </visual>
-    <!-- MAIL SLOT BACK AND FRONT WALLS -->
+  </link>
+
+    <!-- MAIL SLOT LINKS -->
+  <!-- <link name="mailslot_bottom">
+    <visual>
+      <geometry>
+        <box size="0.18 0.1 0.02" />
+      </geometry>
+      <origin xyz="0.0 0 0.0" rpy="0 0 0" />
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.18 0.3 0.02"/>
+      </geometry>
+      <origin xyz="0.0 0 0.0" rpy="0 0 0" />
+    </collision>
+  </link>
+
+  <link name = "mailslot_back">
     <visual>
       <geometry>
         <box size="0.02 0.1 0.1" />
       </geometry>
-      <origin xyz="-0.71 0 0.37" rpy="0 0 0" />
+      <origin xyz="-0.08 0 0.07" rpy="0 0 0" />
     </visual>
+    <collision>
+      <geometry>
+        <box size="0.02 0.1 0.1" />
+      </geometry>
+      <origin xyz="-0.08 0 0.07" rpy="0 0 0" />
+    </collision>
+  </link>
+
+ <link name = "mailslot_front">
     <visual>
       <geometry>
         <box size="0.02 0.1 0.1" />
       </geometry>
-      <origin xyz="-0.49 0 0.37" rpy="0 0 0" />
+      <origin xyz="0.08 0 0.07" rpy="0 0 0" />
     </visual>
-    <!-- MAIL SLOT SIDE WALLS -->
+    <collision>
+      <geometry>
+        <box size="0.02 0.1 0.1" />
+      </geometry>
+      <origin xyz="0.08 0 0.07" rpy="0 0 0" />
+    </collision>
+  </link>
+
+  <link name = "mailslot_left_side">
     <visual>
       <geometry>
-        <box size="0.16 0.02 0.1" />
+        <box size="0.1 0.02 0.1" />
       </geometry>
-      <origin xyz="-0.6 -0.04 0.37" rpy="0 0 0" />
+      <origin xyz="0.0 -0.04 0.07" rpy="0 0 0" />
     </visual>
-        <visual>
-    <geometry>
-        <box size="0.16 0.02 0.1" />
+   <collision>
+      <geometry>
+        <box size="0.1 0.02 0.1" />
       </geometry>
-      <origin xyz="-0.6 0.04 0.37" rpy="0 0 0" />
-    </visual>
-    <!-- MAIL SLOT BOTTOM -->
+      <origin xyz="0.0 -0.04 0.07" rpy="0 0 0" />
+    </collision>
+  </link>
+
+  <link name = "mailslot_right_side">
     <visual>
       <geometry>
-        <box size="0.24 0.1 0.02" />
+        <box size="0.1 0.02 0.1" />
       </geometry>
-      <origin xyz="-0.6 0 0.3" rpy="0 0 0" />
+      <origin xyz="0.0 0.04 0.07" rpy="0 0 0" />
     </visual>
   </link>
+   <collision>
+      <geometry>
+        <box size="0.1 0.02 0.1" />
+      </geometry>
+      <origin xyz="0.0 0.04 0.07" rpy="0 0 0" />
+    </collision>
+  </link> -->
 
 
   <!-- PANDA ARM LINKS --> 
@@ -307,6 +351,36 @@
       <calibration falling="-80.0" />
       <limit effort="87" lower="-2.8973" upper="2.8973" velocity="2.1750"/>
   </joint>
+
+  <!-- <joint name="mailslot_bottom_joint" type="fixed">
+      <origin xyz="-0.61 0 0.3" rpy="0 0 0" />
+      <parent link="base_link"/>
+      <child link="mailslot_bottom"/>
+  </joint>
+
+  <joint name="mailslot_back_joint" type="fixed">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <parent link="mailslot_bottom"/>
+      <child link="mailslot_back"/>
+  </joint>
+
+ <joint name="mailslot_front_joint" type="fixed">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <parent link="mailslot_bottom"/>
+      <child link="mailslot_front"/>
+  </joint>
+
+  <joint name="mailslot_left_side_joint" type="fixed">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <parent link="mailslot_bottom"/>
+      <child link="mailslot_left_side"/>
+  </joint>
+
+  <joint name="mailslot_right_side_joint" type="fixed">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <parent link="mailslot_bottom"/>
+      <child link="mailslot_right_side"/>
+  </joint> -->
 
   <joint name="joint2" type="revolute">
       <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-1.7628" soft_upper_limit="1.7628"/>
