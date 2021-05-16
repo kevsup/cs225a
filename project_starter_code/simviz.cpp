@@ -35,7 +35,8 @@ RedisClient redis_client;
 // ForceSensorDisplay* force_display;
 
 // simulation function prototype
-void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
+void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
+//void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 // void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 
 // callback to print glfw errors
@@ -49,6 +50,12 @@ void keySelect(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 // callback when a mouse button is pressed
 void mouseClick(GLFWwindow* window, int button, int action, int mods);
+
+// callback boolean check for objects in camera FOV
+bool cameraFOV(Vector3d object_pos, Vector3d camera_pos, Matrix3d camera_ori, double radius, double fov_angle);
+
+// helper function for cameraFOV
+bool compareSigns(double a, double b);
 
 // flags for scene camera movement
 bool fTransXp = false;
@@ -83,6 +90,7 @@ int main() {
 
     // load robot objects
     auto letter = new Sai2Model::Sai2Model(letter_file, false);
+    auto mailbox = new Sai2Model::Sai2Model(mailbox_file, false);
     // letter->updateModel();
 
     // load simulation world
@@ -269,7 +277,8 @@ int main() {
 }
 
 //------------------------------------------------------------------------------
-void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
+void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
+//void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 // void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 
     int dof = robot->dof();
@@ -294,6 +303,18 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simul
     redis_client.setEigenMatrixJSON(ROBOT_STATE, state_vector);
     bool mailGripped = false;
     bool mailPlaced = false;
+    Vector3d camera_pos, mailbox_pos;  // init camera detection variables 
+    Matrix3d camera_ori;
+    bool detect;
+
+    // manual object offset since the offset in world.urdf file since positionInWorld() doesn't account for this 
+    Vector3d mailbox_offset;
+    mailbox_offset << 0, -0.35, 0.544;
+    Vector3d robot_offset;
+    robot_offset << 0.0, 0.3, 0.3;  
+
+    const std::string true_message = "Detected";
+    const std::string false_message = "Not Detected";
 
     // sensed forces and moments from sensor
     // Eigen::Vector3d sensed_force;
@@ -327,7 +348,30 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simul
         robot->updateModel();
 
         state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
-        if (!mailGripped && state_vector(0) != PLACE_MAIL) {
+        if (state_vector(0) == SCAN_FOR_BOX){
+            // query object position and ee pos/ori for camera detection 
+            mailbox->positionInWorld(mailbox_pos, "link1");
+            robot->positionInWorld(camera_pos, "base_link");
+            robot->rotationInWorld(camera_ori, "base_link");  // local to world frame 
+
+            // add position offset in world.urdf file since positionInWorld() doesn't account for this 
+            mailbox_pos += mailbox_offset;
+            camera_pos += robot_offset;  // camera position/orientation is set to the panda's last link
+
+            // object camera detect 
+            detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 1.0, M_PI/6);
+            if (detect == true) {
+                /*mailbox_pos(0) += dist(generator);  // add white noise 
+                mailbox_pos(1) += dist(generator);
+                mailbox_pos(2) += dist(generator);*/
+                redis_client.setEigenMatrixJSON(CAMERA_DETECT_KEY, true_message);
+                redis_client.setEigenMatrixJSON(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(obj_pos));
+            }
+            else {
+                redis_client.setEigenMatrixJSON(CAMERA_DETECT_KEY, false_message);
+                redis_client.setEigenMatrixJSON(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
+            }
+        } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
             letter->_q(1) = -robot->_q(0);
             sim->setJointPositions("letter", letter->_q);
             VectorXd letter_vel(letter->dof());
@@ -447,6 +491,58 @@ void mouseClick(GLFWwindow* window, int button, int action, int mods) {
             break;
         default:
             break;
+    }
+}
+
+//------------------------------------------------------------------------------
+
+bool cameraFOV(Vector3d object_pos, Vector3d camera_pos, Matrix3d camera_ori, double radius, double fov_angle) {
+    // init
+    Vector3d a, b, c, d;
+    // Vector3d normal = camera_ori.col(2);  // normal vector in world frame 
+
+    // local camera frame vertex coordinates 
+    Vector3d v1, v2, v3; 
+    v1 << 0, -radius*tan(fov_angle), radius;
+    v2 << radius*tan(fov_angle)*cos(M_PI/6), radius*tan(fov_angle)*sin(M_PI/6), radius;
+    v3 << -radius*tan(fov_angle)*cos(M_PI/6), radius*tan(fov_angle)*sin(M_PI/6), radius;
+
+    // world frame vertex coordinates centered at the object 
+    a = camera_pos - object_pos;
+    b = camera_pos + camera_ori*v1 - object_pos;
+    c = camera_pos + camera_ori*v2 - object_pos;
+    d = camera_pos + camera_ori*v3 - object_pos;
+
+    // calculate if object position is inside tetrahedron 
+    vector<double> B(4);
+    B.at(0) = ( -1*(b(0)*c(1)*d(2) - b(0)*c(2)*d(1) - b(1)*c(0)*d(2) + b(1)*c(2)*d(0) + b(2)*c(0)*d(1) - b(2)*c(1)*d(0)) );
+    B.at(1) = ( a(0)*c(1)*d(2) - a(0)*c(2)*d(1) - a(1)*c(0)*d(2) + a(1)*c(2)*d(0) + a(2)*c(0)*d(1) - a(2)*c(1)*d(0) );
+    B.at(2) = ( -1*(a(0)*b(1)*d(2) - a(0)*b(2)*d(1) - a(1)*b(0)*d(2) + a(1)*b(2)*d(0) + a(2)*b(0)*d(1) - a(2)*b(1)*d(0)) );
+    B.at(3) = ( a(0)*b(1)*c(2) - a(0)*b(2)*c(1) - a(1)*b(0)*c(2) + a(1)*b(2)*c(0) + a(2)*b(0)*c(1) - a(2)*b(1)*c(0) );
+    double detM = B.at(0) + B.at(1) + B.at(2) + B.at(3);
+
+    // sign check
+    bool test;
+    for (int i = 0; i < B.size(); ++i) {
+        test = compareSigns(detM, B.at(i));
+        if (test == false) {
+            return false;
+        }
+    }
+    return true;
+}
+
+//------------------------------------------------------------------------------
+
+bool compareSigns(double a, double b) {
+    if (a > 0 && b > 0) {
+        return true;
+    }
+    else if (a < 0 && b < 0) {
+        return true;
+    }
+    else {
+        return false;
     }
 }
 
