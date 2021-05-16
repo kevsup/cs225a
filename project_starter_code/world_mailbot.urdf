@@ -11,6 +11,11 @@
         <origin xyz="-0.55 0 1.8" rpy="-1.57 1.57 0" />
     </robot>
 
+    <robot name="mailbox2">
+        <model dir="./resources" path="mailbox.urdf" name="mailbox" />
+        <origin xyz="8 1 -0.3" rpy="1.57 0 -1.57" />
+    </robot>
+
     <static_object name="mailbox">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <visual>
@@ -19,12 +24,15 @@
                 <mesh filename="./resources/../../../model/project_models/mailbox.obj" scale="1.0 1.0 1.0"/>
             </geometry>
         </visual>
-      <collision>
+    </static_object>
+
+    <static_object name="boxfloor">
+        <collision>
         <origin xyz="6.1 0.6 0.52" rpy="0 0 0" />
         <geometry>
           <box size="0.3 0.5 0.005" />
         </geometry>
-      </collision>
+        </collision>
     </static_object>
 
     <static_object name="boxwall1">
