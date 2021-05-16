@@ -21,8 +21,11 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="../../../model/project_models/mailbox.obj" scale="1.0 1.0 1.0"/>
+                <mesh filename="../../../model/project_models/mailbox_new.obj" scale="0.52 0.52 0.52"/>
             </geometry>
+            <material name="material_red">
+                <texture filename="../../../model/project_models/mailbox_new.mtl" />
+            </material>
         </visual>
 
     </link>
@@ -33,12 +36,30 @@
         <mass value="0.1" />
         <inertia ixx="1e-3" iyy="1e-3" izz="1e-3" ixy="0" ixz="0" iyz="0" />
       </inertial>
-        <visual>
+      <visual>
+        <origin xyz="0 0 -0.13" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="../../../model/project_models/mailboxlid.obj" scale="0.52 0.52 0.52"/>
+        </geometry>
+      </visual>
+      <visual>
+        <origin xyz="0 0.21 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.05 0.05" />
+        </geometry>
+      </visual>
+      <visual>
+        <origin xyz="0 0.21 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.1 0.05 0.05" />
+        </geometry>
+      </visual>
+      <!-- <visual>
         <origin xyz="0 0.5 0" rpy="0 0 0" />
         <geometry>
-          <box size="0.05 0.3 0.3" />
+          <box size="0.02 0.43 0.1" />
         </geometry>
-        </visual>
+      </visual> -->
     </link>
 
         <!-- visualize collision mesh
@@ -55,10 +76,10 @@
         -->
     
     <joint name="joint1" type="revolute">
-      <origin xyz="1 1 0" rpy="0 0 0" />
+      <origin xyz="0.575 1.84 .13" rpy="0 0 0" />
       <parent link="link0"/>
       <child link="link1"/>
-        <axis xyz="1 0 0"/>
+        <axis xyz="0 1 0"/>
       <limit effort="21.3" lower="0" upper="6.28" velocity="21.3"/>
     </joint>
 </robot>
