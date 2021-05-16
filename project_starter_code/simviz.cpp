@@ -315,6 +315,8 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
 
     const std::string true_message = "Detected";
     const std::string false_message = "Not Detected";
+    // setup redis client data container for pipeset (batch write)
+    std::vector<std::pair<std::string, std::string>> redis_data(2);
 
     // sensed forces and moments from sensor
     // Eigen::Vector3d sensed_force;
@@ -364,12 +366,14 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
                 /*mailbox_pos(0) += dist(generator);  // add white noise 
                 mailbox_pos(1) += dist(generator);
                 mailbox_pos(2) += dist(generator);*/
-                redis_client.setEigenMatrixJSON(CAMERA_DETECT_KEY, true_message);
-                redis_client.setEigenMatrixJSON(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(obj_pos));
+                cout << "mailbox position: " << mailbox_pos << endl;
+                cout << "camera position: " << camera_pos << endl;
+                redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, true_message);
+                redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(mailbox_pos));
             }
             else {
-                redis_client.setEigenMatrixJSON(CAMERA_DETECT_KEY, false_message);
-                redis_client.setEigenMatrixJSON(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
+                redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
+                redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
             }
         } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
             letter->_q(1) = -robot->_q(0);
@@ -396,6 +400,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
         redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
         // redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
         // redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
+        redis_client.pipeset(redis_data);
 
         //update last time
         last_time = curr_time;
