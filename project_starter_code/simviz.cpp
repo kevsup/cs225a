@@ -309,9 +309,9 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
 
     // manual object offset since the offset in world.urdf file since positionInWorld() doesn't account for this 
     Vector3d mailbox_offset;
-    mailbox_offset << 0, -0.35, 0.544;
+    mailbox_offset << 5.9, 1.68, 0.76;
     Vector3d robot_offset;
-    robot_offset << 0.0, 0.3, 0.3;  
+    robot_offset << 0.0, 0.3, 0;  
 
     const std::string true_message = "Detected";
     const std::string false_message = "Not Detected";
@@ -351,24 +351,22 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
 
         state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
         if (state_vector(0) == SCAN_FOR_BOX){
-            cout << "a" << endl; 
             // query object position and ee pos/ori for camera detection 
-            mailbox->positionInWorld(mailbox_pos, "link1");
+            mailbox->positionInWorld(mailbox_pos, "link0");
             robot->positionInWorld(camera_pos, "link7");
             robot->rotationInWorld(camera_ori, "link7");  // local to world frame 
+
 
             // add position offset in world.urdf file since positionInWorld() doesn't account for this 
             mailbox_pos += mailbox_offset;
             camera_pos += robot_offset;  // camera position/orientation is set to the panda's last link
 
             // object camera detect 
-            detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 15.0, M_PI);
+            detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 2.0, M_PI);
             if (detect == true) {
                 /*mailbox_pos(0) += dist(generator);  // add white noise 
                 mailbox_pos(1) += dist(generator);
                 mailbox_pos(2) += dist(generator);*/
-                cout << "mailbox position: " << mailbox_pos << endl;
-                cout << "camera position: " << camera_pos << endl;
                 VectorXd detection_vector(1);
                 detection_vector(0) = 1;
                 redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
@@ -376,13 +374,10 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
                 redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(mailbox_pos));
             }
             else {
-                cout << "mailbox not detected" << endl;
-                cout << "camera position: " << camera_pos << endl;
                 redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
                 redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
             }
         } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
-            cout << "b" << endl;
             letter->_q(1) = -robot->_q(0);
             sim->setJointPositions("letter", letter->_q);
             VectorXd letter_vel(letter->dof());

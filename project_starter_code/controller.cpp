@@ -177,13 +177,22 @@ int main() {
             case SCAN_FOR_BOX:
             {
 
-                cout << "Next: open box!!!!" << endl;
                 detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
                 if (detection_vector(0) == 1){
-                	cout << "detected!!!" << endl;
+                    cout << "Next: open box!!!!" << endl;
                 	state = OPEN_BOX;
-                }else{
+                } else {
                 	// move end effector
+                    double angle = -45 * M_PI / 180;
+                    Matrix3d Rd;
+                    Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
+                    Matrix3d rot;
+                    rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
+                    Rd = rot * Rd;
+                    Vector3d xd = Vector3d(5.8, 0.35, 0.66);
+                    VectorXd qd = q_desired;
+                    qd(TRUCK_JTS) += M_PI;
+                    moveArm(xd, Rd, qd, command_torques, robot);
                 }
                 break;
             }
