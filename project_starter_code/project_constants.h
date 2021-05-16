@@ -10,6 +10,7 @@ const std::string JOINT_TORQUES_COMMANDED_KEY = "sai2::cs225a::project::actuator
 const std::string LETTER_JOINT_ANGLES_KEY = "sai2::cs225a::letter::sensors::q";
 const std::string LETTER_JOINT_VELOCITIES_KEY = "sai2::cs225a::letter::sensors::dq";
 const std::string ROBOT_STATE = "sai2::cs225a::project::arm::state";
+const std::string DETECTION_STATE = "sai2::cs225a::project::arm::detection";
 const std::string CAMERA_DETECT_KEY = "sai2::cs225a::camera::detect";
 const std::string CAMERA_OBJ_POS_KEY = "sai2::cs225a::camera::obj_pos";
 

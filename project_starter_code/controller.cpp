@@ -133,6 +133,10 @@ int main() {
     double drive_time_init = start_time;
     double grip_time_init;
 
+    VectorXd detection_vector(1);
+    detection_vector.setZero();
+    redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
+
     while (runloop) {
         // wait for next scheduled loop
         timer.waitForNextLoop();
@@ -174,7 +178,13 @@ int main() {
             {
 
                 cout << "Next: open box!!!!" << endl;
-                state = OPEN_BOX;
+                detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
+                if (detection_vector(0) == 1){
+                	cout << "detected!!!" << endl;
+                	state = OPEN_BOX;
+                }else{
+                	// move end effector
+                }
                 break;
             }
             case OPEN_BOX:
