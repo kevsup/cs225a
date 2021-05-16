@@ -133,6 +133,10 @@ int main() {
     double drive_time_init = start_time;
     double grip_time_init;
 
+    VectorXd detection_vector(1);
+    detection_vector.setZero();
+    redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
+
     while (runloop) {
         // wait for next scheduled loop
         timer.waitForNextLoop();
@@ -173,8 +177,23 @@ int main() {
             case SCAN_FOR_BOX:
             {
 
-                cout << "Next: open box!!!!" << endl;
-                state = OPEN_BOX;
+                detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
+                if (detection_vector(0) == 1){
+                    cout << "Next: open box!!!!" << endl;
+                	state = OPEN_BOX;
+                } else {
+                	// move end effector
+                    double angle = -45 * M_PI / 180;
+                    Matrix3d Rd;
+                    Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
+                    Matrix3d rot;
+                    rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
+                    Rd = rot * Rd;
+                    Vector3d xd = Vector3d(5.8, 0.35, 0.66);
+                    VectorXd qd = q_desired;
+                    qd(TRUCK_JTS) += M_PI;
+                    moveArm(xd, Rd, qd, command_torques, robot);
+                }
                 break;
             }
             case OPEN_BOX:
