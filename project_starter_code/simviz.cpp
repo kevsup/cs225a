@@ -152,7 +152,7 @@ int main() {
     glewInitialize();
 
     fSimulationRunning = true;
-    thread sim_thread(simulation, robot, letter, sim, ui_force_widget);
+    thread sim_thread(simulation, robot, letter, mailbox, sim, ui_force_widget);
     // thread sim_thread(simulation, robot, sim, ui_force_widget);
     
     // while window is open:
