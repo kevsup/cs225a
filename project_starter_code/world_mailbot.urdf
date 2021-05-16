@@ -11,7 +11,7 @@
         <origin xyz="-0.55 0 1.8" rpy="-1.57 1.57 0" />
     </robot>
 
-    <robot name="mailbox2">
+    <robot name="mailbox">
         <model dir="./resources" path="mailbox.urdf" name="mailbox" />
         <origin xyz="6.26 1 -1.32" rpy="1.57 0 -1.57" />
     </robot>

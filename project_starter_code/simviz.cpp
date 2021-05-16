@@ -110,6 +110,10 @@ int main() {
     sim->getJointVelocities("letter", letter->_dq);
     letter->updateKinematics();
 
+    sim->getJointPositions("mailbox", mailbox->_q);
+    sim->getJointVelocities("mailbox", mailbox->_dq);
+    letter->updateKinematics();
+
     /*------- Set up visualization -------*/
     // set up error callback
     glfwSetErrorCallback(glfwError);
@@ -163,6 +167,7 @@ int main() {
         glfwGetFramebufferSize(window, &width, &height);
         graphics->updateGraphics(robot_name, robot);
         graphics->updateGraphics("letter", letter);
+        graphics->updateGraphics("mailbox", mailbox);
         // force_display->update();
         graphics->render(camera_name, width, height);
 
@@ -322,6 +327,15 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
     // Eigen::Vector3d sensed_force;
  //    Eigen::Vector3d sensed_moment;
 
+    // Update lid position 
+    // sim->getJointPositions("mailbox", mailbox->_q);
+    // cout << "really before" << mailbox->_q << endl;
+    // mailbox->_q(0) = -1.57;
+    // cout << "before set position" << mailbox->_q << endl;
+    // sim->setJointPositions("mailbox", mailbox->_q);
+    // cout << "after" << mailbox->_q << endl;
+    // mailbox->updateModel();
+
     while (fSimulationRunning) {
         fTimerDidSleep = timer.waitForNextLoop();
 
@@ -351,6 +365,14 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
 
         state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
         if (state_vector(0) == SCAN_FOR_BOX){
+
+            // Update lid position 
+            sim->getJointPositions("mailbox", mailbox->_q);
+            mailbox->_q(0) = -1.57;
+            sim->setJointPositions("mailbox", mailbox->_q);
+            mailbox->updateModel();
+
+           
             // query object position and ee pos/ori for camera detection 
             mailbox->positionInWorld(mailbox_pos, "link0");
             robot->positionInWorld(camera_pos, "link7");
