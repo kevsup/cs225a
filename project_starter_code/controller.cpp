@@ -29,16 +29,17 @@ using namespace Eigen;
 void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time);
 void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot);
 void operationalSpaceMatrices(MatrixXd& Lambda, MatrixXd& Jbar, MatrixXd& N, const MatrixXd& task_jacobian, Sai2Model::Sai2Model* &robot);
-// void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q);
+void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q);
 void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q);
 void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q);
 bool moveGripperToParcel(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold);
-bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold, bool gripped);
+bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold, bool gripped, bool vertical=false);
 
 
 States state = WAIT_FOR_BOX;
 MailStates mail_state = MOVE_OVERHEAD;
 PlaceStates place_state = FRONT;
+BoxStates box_state = MOVE_IN_FRONT;
 
 // constants
 const int TRUCK_JTS = 3;    // number of truck joints   
@@ -202,11 +203,7 @@ int main() {
             }
             case OPEN_BOX:
             {
-                if (counter > 500) {
-                    state = GRAB_MAIL;
-                } else {
-                counter++;
-                }
+                openBoxStateMachine(robot, q_desired, command_torques, grip_time_init,  time, initial_q);
                 break;
             }
             case GRAB_MAIL:
@@ -303,6 +300,69 @@ int main() {
 
     return 0;
 }
+
+void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q) {
+
+    switch (box_state) {
+        case MOVE_IN_FRONT:
+        {
+            Vector3d xd(6.26-0.13, 1 - 0.575 - 0.3, -1.32 + 1.84 + 0.21);
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 1, false, true)) {
+                box_state = MOVE_TO_HANDLE;
+                q_desired = robot->_q;
+                cout << "Next: drop down" << endl;
+            }
+            break;
+        }
+        case MOVE_TO_HANDLE:
+        {
+            Vector3d xd(6.26-0.13, 1 - 0.575 - 0.15, -1.32 + 1.84 + 0.21);
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, false, true)) {
+                box_state = GRIP_HANDLE;
+                q_desired = robot->_q;
+                grip_time_init = time;
+                cout << "Next: grip parcel" << endl;
+            }
+            break;
+        }
+        case GRIP_HANDLE:
+        {
+            // basic joint space control w/ high gains
+            double kp = 900;
+            double kv = 60;
+
+            q_desired(10) = 0;
+            q_desired(11) = 0;
+            command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq);  
+           
+            // grip for a fixed amount of time
+            if (time - grip_time_init > 1) {
+                box_state = PAIN;
+                q_desired = robot->_q;
+                cout << "completed gripping" << endl;
+            }
+            break;
+        }
+        case PAIN:
+        {
+            Vector3d xd(6.26-0.13, 1 - 0.575 - 0.15 -0.01, -1.32 + 1.84 + 0.21);
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, true, true)) {
+                //box_state = GRIP_HANDLE;
+                q_desired = robot->_q;
+                grip_time_init = time;
+                cout << "Next: grip parcel" << endl;
+            }
+
+            break;
+        }
+        default:
+        {
+            //shouldn't be stateless
+            cout << "Mail is stateless :(" << endl;
+        }
+    }
+}
+
 
 void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q) {
     switch (mail_state) {
@@ -535,12 +595,16 @@ bool moveGripperToParcel(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q
     return (x - xd).norm() < 0.01 && robot->_dq.norm() < vel_threshold;
 } 
 
-bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold, bool gripped) {
+bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold, bool gripped, bool vertical) {
     double angle = -45 * M_PI / 180;
     Matrix3d Rd;
     Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
     Matrix3d rot;
-    rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
+    if (vertical) {
+        rot << 1, 0, 0, 0, 0, -1, 0, 1, 0;
+    } else {
+        rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
+    }
     Rd = rot * Rd;
     if (gripped) {
         q_desired << q_desired.head(TRUCK_JTS), initial_q.segment(TRUCK_JTS, ARM_JTS), 0, 0;

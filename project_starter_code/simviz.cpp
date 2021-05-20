@@ -23,16 +23,17 @@ using namespace Eigen;
 
 // redis keys:
 // - write:
-// const std::string EE_FORCE_KEY = "sai2::cs225a::sensor::force";
-// const std::string EE_MOMENT_KEY = "sai2::cs225a::sensor::moment";
+const std::string EE_FORCE_KEY = "sai2::cs225a::sensor::force";
+const std::string EE_MOMENT_KEY = "sai2::cs225a::sensor::moment";
+const string ee_link_name = "link7";
 
 RedisClient redis_client;
 
 // force sensor
-// ForceSensorSim* force_sensor;
+ForceSensorSim* force_sensor;
 
 // display widget for forces at end effector
-// ForceSensorDisplay* force_display;
+ForceSensorDisplay* force_display;
 
 // simulation function prototype
 void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
@@ -101,6 +102,10 @@ int main() {
     sim->setCoeffFrictionStatic(10);
     sim->setCoeffFrictionDynamic(10);
 
+	// initialize force sensor: needs Sai2Simulation sim interface type
+	force_sensor = new ForceSensorSim(robot_name, ee_link_name, Eigen::Affine3d::Identity(), robot);
+	force_display = new ForceSensorDisplay(force_sensor, graphics);
+
     // read joint positions, velocities, update model
     sim->getJointPositions(robot_name, robot->_q);
     sim->getJointVelocities(robot_name, robot->_dq);
@@ -168,7 +173,7 @@ int main() {
         graphics->updateGraphics(robot_name, robot);
         graphics->updateGraphics("letter", letter);
         graphics->updateGraphics("mailbox", mailbox);
-        // force_display->update();
+        force_display->update();
         graphics->render(camera_name, width, height);
 
         // swap buffers
@@ -324,16 +329,25 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
     std::vector<std::pair<std::string, std::string>> redis_data(2);
 
     // sensed forces and moments from sensor
-    // Eigen::Vector3d sensed_force;
- //    Eigen::Vector3d sensed_moment;
+    Eigen::Vector3d sensed_force;
+    Eigen::Vector3d sensed_moment;
 
     // Update lid position 
     mailbox->_q(0) = 0;
     sim->setJointPositions("mailbox", mailbox->_q);
     mailbox->updateModel();
 
+
+
     while (fSimulationRunning) {
         fTimerDidSleep = timer.waitForNextLoop();
+
+        // update force sensor readings
+        force_sensor->update(sim);
+        force_sensor->getForceLocalFrame(sensed_force);  // refer to ForceSensorSim.h in sai2-common/src/force_sensor (can also get wrt global frame)
+        force_sensor->getMomentLocalFrame(sensed_moment);
+
+        std::cout << "Sensed Force: " << sensed_force.transpose() << "Sensed Moment: " << sensed_moment.transpose() << std::endl;
 
         // get gravity torques
         robot->gravityVector(g);
@@ -352,7 +366,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
         // integrate forward
         double curr_time = timer.elapsedTime();
         double loop_dt = curr_time - last_time; 
-        sim->integrate(loop_dt/3.0);
+        sim->integrate(loop_dt);
 
         // read joint positions, velocities, update model
         sim->getJointPositions(robot_name, robot->_q);
@@ -414,17 +428,23 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
         letter->updateModel();
 
 
-        if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX) {
+        if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX || state_vector(0) == GRAB_MAIL) {
             sim->getJointPositions("mailbox", mailbox->_q);
             sim->getJointVelocities("mailbox", mailbox->_dq);
             mailbox->updateModel();
         } else if (state_vector(0) == PLACE_MAIL) {
             mailbox->_q(0) = -1.57;
             sim->setJointPositions("mailbox", mailbox->_q);
+            VectorXd lid_vel(mailbox->dof());
+            lid_vel.setZero();
+            sim->setJointVelocities("mailbox", lid_vel);
             mailbox->updateModel();
         } else {
-            mailbox->_q(0) = -0.1;
+            mailbox->_q(0) = 0;
             sim->setJointPositions("mailbox", mailbox->_q);
+            VectorXd lid_vel(mailbox->dof());
+            lid_vel.setZero();
+            sim->setJointVelocities("mailbox", lid_vel);
             mailbox->updateModel(); 
         }
 
@@ -434,8 +454,8 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
         redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
         redis_client.setEigenMatrixJSON(LETTER_JOINT_ANGLES_KEY, letter->_q);
         redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
-        // redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
-        // redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
+        redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
+        redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
         redis_client.pipeset(redis_data);
 
         //update last time
