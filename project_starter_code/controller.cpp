@@ -159,6 +159,7 @@ int main() {
 
         if (fSimulationLoopDone) {
 
+
             double time = timer.elapsedTime() - start_time;
 
             // read robot state from redis

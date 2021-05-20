@@ -355,6 +355,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
     while (fSimulationRunning) {
         if (fControllerLoopDone || fRobotLinkSelect) {
             if (fControllerLoopDone) {
+                // read arm torques from redis and apply to simulated robot
 				command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
 			}
 			else {
@@ -364,9 +365,6 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
             // get gravity torques
             robot->gravityVector(g);
 
-            // read arm torques from redis and apply to simulated robot
-            command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
-            
             ui_force_widget->getUIForce(ui_force);
             ui_force_widget->getUIJointTorques(ui_force_command_torques);
 
@@ -378,7 +376,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
             // integrate forward
             double curr_time = timer.elapsedTime();
             double loop_dt = curr_time - last_time; 
-            sim->integrate(loop_dt);
+            sim->integrate(0.001);
 
             // read joint positions, velocities, update model
             sim->getJointPositions(robot_name, robot->_q);
@@ -390,7 +388,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
             force_sensor->getForceLocalFrame(sensed_force);  // refer to ForceSensorSim.h in sai2-common/src/force_sensor (can also get wrt global frame)
             force_sensor->getMomentLocalFrame(sensed_moment);
 
-            std::cout << "Sensed Force: " << 1000 * sensed_force.transpose() << "Sensed Moment: " << 1000 * sensed_moment.transpose() << std::endl;
+            //std::cout << "Sensed Force: " << 1000 * sensed_force.transpose() << "Sensed Moment: " << 1000 * sensed_moment.transpose() << std::endl;
 
 
             state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
