@@ -17,6 +17,8 @@
 
 bool fSimulationRunning = false;
 void sighandler(int){fSimulationRunning = false;}
+bool fSimulationLoopDone = false;
+bool fControllerLoopDone = true; // initialize as true for first loop
 
 using namespace std;
 using namespace Eigen;
@@ -57,6 +59,12 @@ bool cameraFOV(Vector3d object_pos, Vector3d camera_pos, Matrix3d camera_ori, do
 
 // helper function for cameraFOV
 bool compareSigns(double a, double b);
+
+// function for converting string to bool
+bool string_to_bool(const std::string& x);
+
+// function for converting bool to string
+inline const char * const bool_to_string(bool b);
 
 // flags for scene camera movement
 bool fTransXp = false;
@@ -159,6 +167,9 @@ int main() {
 
     // initialize glew
     glewInitialize();
+
+    redis_client.set(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
+	redis_client.set(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone));
 
     fSimulationRunning = true;
     thread sim_thread(simulation, robot, letter, mailbox, sim, ui_force_widget);
@@ -274,6 +285,8 @@ int main() {
 
     // stop simulation
     fSimulationRunning = false;
+    fSimulationLoopDone = false;
+    redis_client.set(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
     sim_thread.join();
 
     // destroy context
@@ -340,126 +353,145 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
 
 
     while (fSimulationRunning) {
-        fTimerDidSleep = timer.waitForNextLoop();
+        if (fControllerLoopDone || fRobotLinkSelect) {
+            if (fControllerLoopDone) {
+				command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
+			}
+			else {
+				command_torques.setZero();
+			}
 
-        // update force sensor readings
-        force_sensor->update(sim);
-        force_sensor->getForceLocalFrame(sensed_force);  // refer to ForceSensorSim.h in sai2-common/src/force_sensor (can also get wrt global frame)
-        force_sensor->getMomentLocalFrame(sensed_moment);
+            // get gravity torques
+            robot->gravityVector(g);
 
-        std::cout << "Sensed Force: " << sensed_force.transpose() << "Sensed Moment: " << sensed_moment.transpose() << std::endl;
+            // read arm torques from redis and apply to simulated robot
+            command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
+            
+            ui_force_widget->getUIForce(ui_force);
+            ui_force_widget->getUIJointTorques(ui_force_command_torques);
 
-        // get gravity torques
-        robot->gravityVector(g);
+            if (fRobotLinkSelect)
+                sim->setJointTorques(robot_name, command_torques + ui_force_command_torques + g);
+            else
+                sim->setJointTorques(robot_name, command_torques + g);
 
-        // read arm torques from redis and apply to simulated robot
-        command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
-        
-        ui_force_widget->getUIForce(ui_force);
-        ui_force_widget->getUIJointTorques(ui_force_command_torques);
+            // integrate forward
+            double curr_time = timer.elapsedTime();
+            double loop_dt = curr_time - last_time; 
+            sim->integrate(loop_dt);
 
-        if (fRobotLinkSelect)
-            sim->setJointTorques(robot_name, command_torques + ui_force_command_torques + g);
-        else
-            sim->setJointTorques(robot_name, command_torques + g);
+            // read joint positions, velocities, update model
+            sim->getJointPositions(robot_name, robot->_q);
+            sim->getJointVelocities(robot_name, robot->_dq);
+            robot->updateModel();
 
-        // integrate forward
-        double curr_time = timer.elapsedTime();
-        double loop_dt = curr_time - last_time; 
-        sim->integrate(loop_dt);
+            // update force sensor readings
+            force_sensor->update(sim);
+            force_sensor->getForceLocalFrame(sensed_force);  // refer to ForceSensorSim.h in sai2-common/src/force_sensor (can also get wrt global frame)
+            force_sensor->getMomentLocalFrame(sensed_moment);
 
-        // read joint positions, velocities, update model
-        sim->getJointPositions(robot_name, robot->_q);
-        sim->getJointVelocities(robot_name, robot->_dq);
-        robot->updateModel();
-
-        state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
-        if (state_vector(0) == SCAN_FOR_BOX){
-
-            // // Update lid position 
-            // // sim->getJointPositions("mailbox", mailbox->_q);
-            // // mailbox->_q(0) = -1.57;
-            // // sim->setJointPositions("mailbox", mailbox->_q);
-            // // mailbox->updateModel();
-
-           
-            // // query object position and ee pos/ori for camera detection 
-            // mailbox->positionInWorld(mailbox_pos, "link0");
-            // robot->positionInWorld(camera_pos, "link7");
-            // robot->rotationInWorld(camera_ori, "link7");  // local to world frame 
+            std::cout << "Sensed Force: " << 1000 * sensed_force.transpose() << "Sensed Moment: " << 1000 * sensed_moment.transpose() << std::endl;
 
 
-            // // add position offset in world.urdf file since positionInWorld() doesn't account for this 
-            // mailbox_pos += mailbox_offset;
-            // camera_pos += robot_offset;  // camera position/orientation is set to the panda's last link
+            state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
+            if (state_vector(0) == SCAN_FOR_BOX){
 
-            // // object camera detect 
-            // detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 2.0, M_PI);
-            // if (detect == true) {
-            //     /*mailbox_pos(0) += dist(generator);  // add white noise 
-            //     mailbox_pos(1) += dist(generator);
-            //     mailbox_pos(2) += dist(generator);*/
-            //     VectorXd detection_vector(1);
-            //     detection_vector(0) = 1;
-            //     redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
-            //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, true_message);
-            //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(mailbox_pos));
-            // }
-            // else {
-            //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
-            //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
-            // }
-        } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
-            letter->_q(1) = -robot->_q(0);
-            sim->setJointPositions("letter", letter->_q);
-            VectorXd letter_vel(letter->dof());
-            letter_vel.setZero();
-            sim->setJointVelocities("letter", letter_vel);
-        } else if (state_vector(0) == BACKOUT) {
-            // hack for now: prevent the gripper from dragging the letter with friction
-            VectorXd letter_vel(letter->dof());
-            letter_vel.setZero();
-            sim->setJointVelocities("letter", letter_vel);
-        } else {
-            sim->getJointPositions("letter", letter->_q);
-            sim->getJointVelocities("letter", letter->_dq);
-            mailGripped = true;
+                // // Update lid position 
+                // // sim->getJointPositions("mailbox", mailbox->_q);
+                // // mailbox->_q(0) = -1.57;
+                // // sim->setJointPositions("mailbox", mailbox->_q);
+                // // mailbox->updateModel();
+
+               
+                // // query object position and ee pos/ori for camera detection 
+                // mailbox->positionInWorld(mailbox_pos, "link0");
+                // robot->positionInWorld(camera_pos, "link7");
+                // robot->rotationInWorld(camera_ori, "link7");  // local to world frame 
+
+
+                // // add position offset in world.urdf file since positionInWorld() doesn't account for this 
+                // mailbox_pos += mailbox_offset;
+                // camera_pos += robot_offset;  // camera position/orientation is set to the panda's last link
+
+                // // object camera detect 
+                // detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 2.0, M_PI);
+                // if (detect == true) {
+                //     /*mailbox_pos(0) += dist(generator);  // add white noise 
+                //     mailbox_pos(1) += dist(generator);
+                //     mailbox_pos(2) += dist(generator);*/
+                //     VectorXd detection_vector(1);
+                //     detection_vector(0) = 1;
+                //     redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
+                //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, true_message);
+                //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(mailbox_pos));
+                // }
+                // else {
+                //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
+                //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
+                // }
+            } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
+                letter->_q(1) = -robot->_q(0);
+                sim->setJointPositions("letter", letter->_q);
+                VectorXd letter_vel(letter->dof());
+                letter_vel.setZero();
+                sim->setJointVelocities("letter", letter_vel);
+            } else if (state_vector(0) == BACKOUT) {
+                // hack for now: prevent the gripper from dragging the letter with friction
+                VectorXd letter_vel(letter->dof());
+                letter_vel.setZero();
+                sim->setJointVelocities("letter", letter_vel);
+            } else {
+                sim->getJointPositions("letter", letter->_q);
+                sim->getJointVelocities("letter", letter->_dq);
+                mailGripped = true;
+            }
+            letter->updateModel();
+
+
+            if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX || state_vector(0) == GRAB_MAIL) {
+                sim->getJointPositions("mailbox", mailbox->_q);
+                sim->getJointVelocities("mailbox", mailbox->_dq);
+                mailbox->updateModel();
+            } else if (state_vector(0) == PLACE_MAIL) {
+                mailbox->_q(0) = -1.57;
+                sim->setJointPositions("mailbox", mailbox->_q);
+                VectorXd lid_vel(mailbox->dof());
+                lid_vel.setZero();
+                sim->setJointVelocities("mailbox", lid_vel);
+                mailbox->updateModel();
+            } else {
+                mailbox->_q(0) = 0;
+                sim->setJointPositions("mailbox", mailbox->_q);
+                VectorXd lid_vel(mailbox->dof());
+                lid_vel.setZero();
+                sim->setJointVelocities("mailbox", lid_vel);
+                mailbox->updateModel(); 
+            }
+
+            // simulation loop is done
+	        fSimulationLoopDone = true;
+
+	        // ask for next control loop
+	        fControllerLoopDone = false;
+
+            // write new robot state to redis
+            redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
+            redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
+            redis_client.setEigenMatrixJSON(LETTER_JOINT_ANGLES_KEY, letter->_q);
+            redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
+            redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
+            redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
+
+            redis_data.at(0) = std::pair<string, string>(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
+	        redis_data.at(1) = std::pair<string, string>(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone)); // ask for next control loop
+            redis_client.pipeset(redis_data);
+
+            //update last time
+            last_time = curr_time;
         }
-        letter->updateModel();
 
-
-        if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX || state_vector(0) == GRAB_MAIL) {
-            sim->getJointPositions("mailbox", mailbox->_q);
-            sim->getJointVelocities("mailbox", mailbox->_dq);
-            mailbox->updateModel();
-        } else if (state_vector(0) == PLACE_MAIL) {
-            mailbox->_q(0) = -1.57;
-            sim->setJointPositions("mailbox", mailbox->_q);
-            VectorXd lid_vel(mailbox->dof());
-            lid_vel.setZero();
-            sim->setJointVelocities("mailbox", lid_vel);
-            mailbox->updateModel();
-        } else {
-            mailbox->_q(0) = 0;
-            sim->setJointPositions("mailbox", mailbox->_q);
-            VectorXd lid_vel(mailbox->dof());
-            lid_vel.setZero();
-            sim->setJointVelocities("mailbox", lid_vel);
-            mailbox->updateModel(); 
-        }
-
-
-        // write new robot state to redis
-        redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
-        redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
-        redis_client.setEigenMatrixJSON(LETTER_JOINT_ANGLES_KEY, letter->_q);
-        redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
-        redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
-        redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
-        redis_client.pipeset(redis_data);
-
-        //update last time
-        last_time = curr_time;
+        // read controller state
+        fControllerLoopDone = string_to_bool(redis_client.get(CONTROLLER_LOOP_DONE_KEY));
     }
 
     double end_time = timer.elapsedTime();
@@ -607,3 +639,16 @@ bool compareSigns(double a, double b) {
     }
 }
 
+//------------------------------------------------------------------------------
+
+bool string_to_bool(const std::string& x) {
+  assert(x == "false" || x == "true");
+  return x == "true";
+}
+
+//------------------------------------------------------------------------------
+
+inline const char * const bool_to_string(bool b)
+{
+  return b ? "true" : "false";
+}

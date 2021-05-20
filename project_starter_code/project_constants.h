@@ -14,6 +14,8 @@ const std::string ROBOT_STATE = "sai2::cs225a::project::arm::state";
 const std::string DETECTION_STATE = "sai2::cs225a::project::arm::detection";
 const std::string CAMERA_DETECT_KEY = "sai2::cs225a::camera::detect";
 const std::string CAMERA_OBJ_POS_KEY = "sai2::cs225a::camera::obj_pos";
+const std::string SIMULATION_LOOP_DONE_KEY = "cs225a::simulation::done";
+const std::string CONTROLLER_LOOP_DONE_KEY = "cs225a::controller::done";
 
 const string world_file = "./resources/world_mailbot.urdf";
 const string robot_file = "./resources/mmp_panda.urdf";

@@ -17,6 +17,8 @@
 bool runloop = true;
 void sighandler(int sig)
 { runloop = false; }
+bool fSimulationLoopDone = false;
+bool fControllerLoopDone = false;
 
 using namespace std;
 using namespace Eigen;
@@ -25,6 +27,12 @@ using namespace Eigen;
 #define JOINT_CONTROLLER      0
 #define POSORI_CONTROLLER     1
 //int state = POSORI_CONTROLLER;
+
+// function for converting string to bool
+bool string_to_bool(const std::string& x);
+
+// function for converting bool to string
+inline const char * const bool_to_string(bool b);
 
 void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time);
 void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot);
@@ -144,153 +152,176 @@ int main() {
 
     while (runloop) {
         // wait for next scheduled loop
-        timer.waitForNextLoop();
-        double time = timer.elapsedTime() - start_time;
+        //timer.waitForNextLoop();
 
-        // read robot state from redis
-        robot->_q = redis_client.getEigenMatrixJSON(JOINT_ANGLES_KEY);
-        robot->_dq = redis_client.getEigenMatrixJSON(JOINT_VELOCITIES_KEY);
+        // read simulation state
+        fSimulationLoopDone = string_to_bool(redis_client.get(SIMULATION_LOOP_DONE_KEY));
 
-        // update model
-        robot->updateModel();
-        switch (state) {
-            case WAIT_FOR_BOX:
-            {
-                /*
-                // maybe use pre-made joint space controller for this, but need to remove USING_OTG
-                joint_task->updateTaskModel(N_prec);
-                joint_task->_desired_position = q_desired;
-                joint_task->computeTorques(joint_task_torques);
-                command_torques = joint_task_torques;
-                //cout << "step_des_pos = " << joint_task->_step_desired_position << endl;
-                */
+        if (fSimulationLoopDone) {
 
-                // Action: driving
-                q_desired = initial_q;
-                q_desired(0) = 6;
-                moveTruck(q_desired, command_torques, robot, time - drive_time_init);
+            double time = timer.elapsedTime() - start_time;
 
-                // Trigger: camera detects mailbox aka arrives at desired position
-                if ((robot->_q - q_desired).norm() < 1 
-                                && robot->_dq.norm() < 0.001) {
-                    cout << "Truck has arrived!!!!" << endl;
-                    // get coordinates of mailbox using camera
-                    state = SCAN_FOR_BOX;
+            // read robot state from redis
+            robot->_q = redis_client.getEigenMatrixJSON(JOINT_ANGLES_KEY);
+            robot->_dq = redis_client.getEigenMatrixJSON(JOINT_VELOCITIES_KEY);
+
+            // update model
+            robot->updateModel();
+            switch (state) {
+                case WAIT_FOR_BOX:
+                {
+                    /*
+                    // maybe use pre-made joint space controller for this, but need to remove USING_OTG
+                    joint_task->updateTaskModel(N_prec);
+                    joint_task->_desired_position = q_desired;
+                    joint_task->computeTorques(joint_task_torques);
+                    command_torques = joint_task_torques;
+                    //cout << "step_des_pos = " << joint_task->_step_desired_position << endl;
+                    */
+
+                    // Action: driving
+                    q_desired = initial_q;
+                    q_desired(0) = 6;
+                    moveTruck(q_desired, command_torques, robot, time - drive_time_init);
+
+                    // Trigger: camera detects mailbox aka arrives at desired position
+                    if ((robot->_q - q_desired).norm() < 1 
+                                    && robot->_dq.norm() < 0.001) {
+                        cout << "Truck has arrived!!!!" << endl;
+                        // get coordinates of mailbox using camera
+                        state = SCAN_FOR_BOX;
+                    }
+                    break;
                 }
-                break;
-            }
-            case SCAN_FOR_BOX:
-            {
-                state = OPEN_BOX;
-                // detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
-                // if (detection_vector(0) == 1){
-                //     cout << "Next: open box!!!!" << endl;
-                // 	state = OPEN_BOX;
-                // } else {
-                // 	// move end effector
-                //     double angle = -45 * M_PI / 180;
-                //     Matrix3d Rd;
-                //     Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
-                //     Matrix3d rot;
-                //     rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
-                //     Rd = rot * Rd;
-                //     Vector3d xd = Vector3d(5.8, 0.35, 0.66);
-                //     VectorXd qd = q_desired;
-                //     qd(TRUCK_JTS) += M_PI;
-                //     moveArm(xd, Rd, qd, command_torques, robot);
-                // }
-                break;
-            }
-            case OPEN_BOX:
-            {
-                openBoxStateMachine(robot, q_desired, command_torques, grip_time_init,  time, initial_q);
-                break;
-            }
-            case GRAB_MAIL:
-            {
-                grabMailStateMachine(robot, q_desired, command_torques, grip_time_init, time, initial_q);
-                break;
-            }
-            case PLACE_MAIL:
-            {
-                placeMailStateMachine(robot, q_desired, command_torques, grip_time_init, time, initial_q);
-                break;
-            }
-            case CLOSE_BOX:
-            {
+                case SCAN_FOR_BOX:
+                {
+                    state = OPEN_BOX;
+                    // detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
+                    // if (detection_vector(0) == 1){
+                    //     cout << "Next: open box!!!!" << endl;
+                    // 	state = OPEN_BOX;
+                    // } else {
+                    // 	// move end effector
+                    //     double angle = -45 * M_PI / 180;
+                    //     Matrix3d Rd;
+                    //     Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
+                    //     Matrix3d rot;
+                    //     rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
+                    //     Rd = rot * Rd;
+                    //     Vector3d xd = Vector3d(5.8, 0.35, 0.66);
+                    //     VectorXd qd = q_desired;
+                    //     qd(TRUCK_JTS) += M_PI;
+                    //     moveArm(xd, Rd, qd, command_torques, robot);
+                    // }
+                    break;
+                }
+                case OPEN_BOX:
+                {
+                    //openBoxStateMachine(robot, q_desired, command_torques, grip_time_init,  time, initial_q);
+                    state = GRAB_MAIL;
+                    break;
+                }
+                case GRAB_MAIL:
+                {
+                    grabMailStateMachine(robot, q_desired, command_torques, grip_time_init, time, initial_q);
+                    break;
+                }
+                case PLACE_MAIL:
+                {
+                    placeMailStateMachine(robot, q_desired, command_torques, grip_time_init, time, initial_q);
+                    break;
+                }
+                case CLOSE_BOX:
+                {
 
-                state = RETRACT_ARM;
-                break;
-            }
-            case RETRACT_ARM:
-            {
-                // placeholder code. Keeps robot from looping through states
-                q_desired << q_desired.head(TRUCK_JTS), initial_q.segment(TRUCK_JTS, ARM_JTS + GRIP_JTS);
-                moveTruck(q_desired, command_torques, robot, time);
+                    state = RETRACT_ARM;
+                    break;
+                }
+                case RETRACT_ARM:
+                {
+                    // placeholder code. Keeps robot from looping through states
+                    q_desired << q_desired.head(TRUCK_JTS), initial_q.segment(TRUCK_JTS, ARM_JTS + GRIP_JTS);
+                    moveTruck(q_desired, command_torques, robot, time);
 
-                drive_time_init = time;
-                //state = WAIT_FOR_BOX;
-                break;
+                    drive_time_init = time;
+                    //state = WAIT_FOR_BOX;
+                    break;
+                }
+                default:
+                {
+                    //shouldn't be stateless
+                    cout << "I am stateless :(" << endl;
+                }
             }
-            default:
+
+    /*  
+            if(state == JOINT_CONTROLLER)
             {
-                //shouldn't be stateless
-                cout << "I am stateless :(" << endl;
+                // update task model and set hierarchy
+                N_prec.setIdentity();
+                joint_task->updateTaskModel(N_prec);
+
+                // compute torques
+                joint_task->computeTorques(joint_task_torques);
+
+                command_torques = joint_task_torques;
+
+                if( (robot->_q - q_init_desired).norm() < 0.15 )
+                {
+                    posori_task->reInitializeTask();
+                    posori_task->_desired_position += Vector3d(-0.1,0.1,0.1);
+                    posori_task->_desired_orientation = AngleAxisd(M_PI/6, Vector3d::UnitX()).toRotationMatrix() * posori_task->_desired_orientation;
+
+                    joint_task->reInitializeTask();
+                    joint_task->_kp = 0;
+
+                    state = POSORI_CONTROLLER;
+                }
             }
+
+            else if(state == POSORI_CONTROLLER)
+            {
+                // update task model and set hierarchy
+                N_prec.setIdentity();
+                posori_task->updateTaskModel(N_prec);
+                N_prec = posori_task->_N;
+                joint_task->updateTaskModel(N_prec);
+
+                // compute torques
+                posori_task->computeTorques(posori_task_torques);
+                joint_task->computeTorques(joint_task_torques);
+
+                //command_torques = posori_task_torques + joint_task_torques;
+                command_torques = posori_task_torques;
+                for (int i = 1; i < 11; i++) command_torques(i) = 0;
+                cout << command_torques << endl;
+            }
+    */
+
+            // send to redis
+            redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+            VectorXd state_vector(1);
+            state_vector << (state == PLACE_MAIL && place_state == BACKOUT ? place_state : state);
+            redis_client.setEigenMatrixJSON(ROBOT_STATE, state_vector);
+
+            // ask for next simulation loop
+            fSimulationLoopDone = false;
+            redis_client.set(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
+            controller_counter++;
         }
 
-/*  
-        if(state == JOINT_CONTROLLER)
-        {
-            // update task model and set hierarchy
-            N_prec.setIdentity();
-            joint_task->updateTaskModel(N_prec);
+        // controller loop is done
+        fControllerLoopDone = true;
+        redis_client.set(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone));
 
-            // compute torques
-            joint_task->computeTorques(joint_task_torques);
-
-            command_torques = joint_task_torques;
-
-            if( (robot->_q - q_init_desired).norm() < 0.15 )
-            {
-                posori_task->reInitializeTask();
-                posori_task->_desired_position += Vector3d(-0.1,0.1,0.1);
-                posori_task->_desired_orientation = AngleAxisd(M_PI/6, Vector3d::UnitX()).toRotationMatrix() * posori_task->_desired_orientation;
-
-                joint_task->reInitializeTask();
-                joint_task->_kp = 0;
-
-                state = POSORI_CONTROLLER;
-            }
-        }
-
-        else if(state == POSORI_CONTROLLER)
-        {
-            // update task model and set hierarchy
-            N_prec.setIdentity();
-            posori_task->updateTaskModel(N_prec);
-            N_prec = posori_task->_N;
-            joint_task->updateTaskModel(N_prec);
-
-            // compute torques
-            posori_task->computeTorques(posori_task_torques);
-            joint_task->computeTorques(joint_task_torques);
-
-            //command_torques = posori_task_torques + joint_task_torques;
-            command_torques = posori_task_torques;
-            for (int i = 1; i < 11; i++) command_torques(i) = 0;
-            cout << command_torques << endl;
-        }
-*/
-
-        // send to redis
-        redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
-        VectorXd state_vector(1);
-        state_vector << (state == PLACE_MAIL && place_state == BACKOUT ? place_state : state);
-        redis_client.setEigenMatrixJSON(ROBOT_STATE, state_vector);
-
-        controller_counter++;
     }
+
+    command_torques.setZero();
+	redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+
+    // controller loop is turned off
+    fControllerLoopDone = false;
+    redis_client.set(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone));
 
     double end_time = timer.elapsedTime();
     std::cout << "\n";
@@ -615,4 +646,29 @@ bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_de
     Vector3d x;
     robot->position(x, CONTROL_LINK, CONTROL_POINT);
     return (x - xd).norm() < 0.01 && robot->_dq.norm() < vel_threshold;
+}
+
+//------------------------------------------------------------------------------
+
+double sat(double x) {
+	if (abs(x) <= 1.0) {
+		return x;
+	}
+	else {
+		return signbit(x);
+	}
+}
+
+//------------------------------------------------------------------------------
+
+bool string_to_bool(const std::string& x) {
+  assert(x == "false" || x == "true");
+  return x == "true";
+}
+
+//------------------------------------------------------------------------------
+
+inline const char * const bool_to_string(bool b)
+{
+  return b ? "true" : "false";
 } 
