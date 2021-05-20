@@ -112,7 +112,7 @@ int main() {
 
     sim->getJointPositions("mailbox", mailbox->_q);
     sim->getJointVelocities("mailbox", mailbox->_dq);
-    letter->updateKinematics();
+    mailbox->updateKinematics();
 
     /*------- Set up visualization -------*/
     // set up error callback
@@ -328,13 +328,9 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
  //    Eigen::Vector3d sensed_moment;
 
     // Update lid position 
-    // sim->getJointPositions("mailbox", mailbox->_q);
-    // cout << "really before" << mailbox->_q << endl;
-    // mailbox->_q(0) = -1.57;
-    // cout << "before set position" << mailbox->_q << endl;
-    // sim->setJointPositions("mailbox", mailbox->_q);
-    // cout << "after" << mailbox->_q << endl;
-    // mailbox->updateModel();
+    mailbox->_q(0) = 0;
+    sim->setJointPositions("mailbox", mailbox->_q);
+    mailbox->updateModel();
 
     while (fSimulationRunning) {
         fTimerDidSleep = timer.waitForNextLoop();
@@ -356,7 +352,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
         // integrate forward
         double curr_time = timer.elapsedTime();
         double loop_dt = curr_time - last_time; 
-        sim->integrate(loop_dt);
+        sim->integrate(loop_dt/3.0);
 
         // read joint positions, velocities, update model
         sim->getJointPositions(robot_name, robot->_q);
@@ -366,39 +362,39 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
         state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
         if (state_vector(0) == SCAN_FOR_BOX){
 
-            // Update lid position 
-            sim->getJointPositions("mailbox", mailbox->_q);
-            mailbox->_q(0) = -1.57;
-            sim->setJointPositions("mailbox", mailbox->_q);
-            mailbox->updateModel();
+            // // Update lid position 
+            // // sim->getJointPositions("mailbox", mailbox->_q);
+            // // mailbox->_q(0) = -1.57;
+            // // sim->setJointPositions("mailbox", mailbox->_q);
+            // // mailbox->updateModel();
 
            
-            // query object position and ee pos/ori for camera detection 
-            mailbox->positionInWorld(mailbox_pos, "link0");
-            robot->positionInWorld(camera_pos, "link7");
-            robot->rotationInWorld(camera_ori, "link7");  // local to world frame 
+            // // query object position and ee pos/ori for camera detection 
+            // mailbox->positionInWorld(mailbox_pos, "link0");
+            // robot->positionInWorld(camera_pos, "link7");
+            // robot->rotationInWorld(camera_ori, "link7");  // local to world frame 
 
 
-            // add position offset in world.urdf file since positionInWorld() doesn't account for this 
-            mailbox_pos += mailbox_offset;
-            camera_pos += robot_offset;  // camera position/orientation is set to the panda's last link
+            // // add position offset in world.urdf file since positionInWorld() doesn't account for this 
+            // mailbox_pos += mailbox_offset;
+            // camera_pos += robot_offset;  // camera position/orientation is set to the panda's last link
 
-            // object camera detect 
-            detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 2.0, M_PI);
-            if (detect == true) {
-                /*mailbox_pos(0) += dist(generator);  // add white noise 
-                mailbox_pos(1) += dist(generator);
-                mailbox_pos(2) += dist(generator);*/
-                VectorXd detection_vector(1);
-                detection_vector(0) = 1;
-                redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
-                redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, true_message);
-                redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(mailbox_pos));
-            }
-            else {
-                redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
-                redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
-            }
+            // // object camera detect 
+            // detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 2.0, M_PI);
+            // if (detect == true) {
+            //     /*mailbox_pos(0) += dist(generator);  // add white noise 
+            //     mailbox_pos(1) += dist(generator);
+            //     mailbox_pos(2) += dist(generator);*/
+            //     VectorXd detection_vector(1);
+            //     detection_vector(0) = 1;
+            //     redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
+            //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, true_message);
+            //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(mailbox_pos));
+            // }
+            // else {
+            //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
+            //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
+            // }
         } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
             letter->_q(1) = -robot->_q(0);
             sim->setJointPositions("letter", letter->_q);
@@ -416,6 +412,22 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
             mailGripped = true;
         }
         letter->updateModel();
+
+
+        if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX) {
+            sim->getJointPositions("mailbox", mailbox->_q);
+            sim->getJointVelocities("mailbox", mailbox->_dq);
+            mailbox->updateModel();
+        } else if (state_vector(0) == PLACE_MAIL) {
+            mailbox->_q(0) = -1.57;
+            sim->setJointPositions("mailbox", mailbox->_q);
+            mailbox->updateModel();
+        } else {
+            mailbox->_q(0) = -0.1;
+            sim->setJointPositions("mailbox", mailbox->_q);
+            mailbox->updateModel(); 
+        }
+
 
         // write new robot state to redis
         redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);

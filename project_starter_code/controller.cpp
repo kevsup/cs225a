@@ -29,6 +29,7 @@ using namespace Eigen;
 void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Model* &robot, double drive_time);
 void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques, Sai2Model::Sai2Model* &robot);
 void operationalSpaceMatrices(MatrixXd& Lambda, MatrixXd& Jbar, MatrixXd& N, const MatrixXd& task_jacobian, Sai2Model::Sai2Model* &robot);
+// void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q);
 void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q);
 void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, double &grip_time_init, double time, VectorXd &initial_q);
 bool moveGripperToParcel(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_desired, VectorXd &command_torques, VectorXd &initial_q, double vel_threshold);
@@ -137,6 +138,9 @@ int main() {
     detection_vector.setZero();
     redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
 
+    //intialize counter
+    int counter = 0;
+
     while (runloop) {
         // wait for next scheduled loop
         timer.waitForNextLoop();
@@ -176,29 +180,33 @@ int main() {
             }
             case SCAN_FOR_BOX:
             {
-
-                detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
-                if (detection_vector(0) == 1){
-                    cout << "Next: open box!!!!" << endl;
-                	state = OPEN_BOX;
-                } else {
-                	// move end effector
-                    double angle = -45 * M_PI / 180;
-                    Matrix3d Rd;
-                    Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
-                    Matrix3d rot;
-                    rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
-                    Rd = rot * Rd;
-                    Vector3d xd = Vector3d(5.8, 0.35, 0.66);
-                    VectorXd qd = q_desired;
-                    qd(TRUCK_JTS) += M_PI;
-                    moveArm(xd, Rd, qd, command_torques, robot);
-                }
+                state = OPEN_BOX;
+                // detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
+                // if (detection_vector(0) == 1){
+                //     cout << "Next: open box!!!!" << endl;
+                // 	state = OPEN_BOX;
+                // } else {
+                // 	// move end effector
+                //     double angle = -45 * M_PI / 180;
+                //     Matrix3d Rd;
+                //     Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
+                //     Matrix3d rot;
+                //     rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
+                //     Rd = rot * Rd;
+                //     Vector3d xd = Vector3d(5.8, 0.35, 0.66);
+                //     VectorXd qd = q_desired;
+                //     qd(TRUCK_JTS) += M_PI;
+                //     moveArm(xd, Rd, qd, command_torques, robot);
+                // }
                 break;
             }
             case OPEN_BOX:
             {
-                state = GRAB_MAIL;
+                if (counter > 500) {
+                    state = GRAB_MAIL;
+                } else {
+                counter++;
+                }
                 break;
             }
             case GRAB_MAIL:
