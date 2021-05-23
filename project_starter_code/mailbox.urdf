@@ -51,6 +51,12 @@
           <mesh filename="../../../model/project_models/mailboxlid.obj" scale="0.52 0.52 0.52"/>
         </geometry>
       </visual>
+      <visual>
+        <origin xyz="0.03 0.21 0" rpy="0 0 0" />
+        <geometry>
+          <box size="0.05 0.05 0.05" />
+        </geometry>
+      </visual>
       <!-- <visual>
         <origin xyz="0 0.21 0" rpy="0 0 0" />
         <geometry>
@@ -77,12 +83,6 @@
         <mass value="1e-5" />
         <inertia ixx="1e-3" iyy="1e-3" izz="1e-3" ixy="0" ixz="0" iyz="0" />
       </inertial>
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0" />
-        <geometry>
-          <box size="0.05 0.05 0.05" />
-        </geometry>
-      </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>

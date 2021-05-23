@@ -76,6 +76,9 @@ bool fTransZn = false;
 bool fRotPanTilt = false;
 bool fRobotLinkSelect = false;
 
+// flag for controlling mailbox lid
+bool freezeLid = false;
+
 int main() {
     cout << "Loading URDF world model file: " << world_file << endl;
 
@@ -356,7 +359,12 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
         if (fControllerLoopDone || fRobotLinkSelect) {
             if (fControllerLoopDone) {
                 // read arm torques from redis and apply to simulated robot
-				command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
+                try {
+				    command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
+                } catch (...) {
+                    cout << "caught redis exception" << endl;
+                    break;
+                }
 			}
 			else {
 				command_torques.setZero();
@@ -390,8 +398,12 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
 
             //std::cout << "Sensed Force: " << 1000 * sensed_force.transpose() << "Sensed Moment: " << 1000 * sensed_moment.transpose() << std::endl;
 
-
-            state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
+            try {
+                state_vector = redis_client.getEigenMatrixJSON(ROBOT_STATE);
+            } catch (...) {
+                cout << "caught redis exception" << endl;
+                break;
+            }
             if (state_vector(0) == SCAN_FOR_BOX){
 
                 // // Update lid position 
@@ -472,12 +484,30 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
                 VectorXd lid_vel(mailbox->dof());
                 lid_vel.setZero();
                 sim->setJointVelocities("mailbox", lid_vel);
-                mailbox->updateModel(); 
+            } else if (state_vector(0) == OPEN_BACKOUT) {
+                mailbox->_q(0) = -M_PI/2;
+                sim->setJointPositions("mailbox", mailbox->_q);
+                VectorXd lid_vel(mailbox->dof());
+                lid_vel.setZero();
+                sim->setJointVelocities("mailbox", lid_vel);
             } else {
-                sim->getJointPositions("mailbox", mailbox->_q);
-                sim->getJointVelocities("mailbox", mailbox->_dq);
-                mailbox->updateModel();
+                if (state_vector(0) == RETRACT_ARM || state_vector(0) == CLOSE_BOX && mailbox->_q(0) > 0) {
+                    freezeLid = true;
+                }
+                if (freezeLid) {
+                    mailbox->_q(0) = 0;
+                    sim->setJointPositions("mailbox", mailbox->_q);
+                    VectorXd lid_vel(mailbox->dof());
+                    lid_vel.setZero();
+                    sim->setJointVelocities("mailbox", lid_vel);
+                } else {
+                    sim->getJointPositions("mailbox", mailbox->_q);
+                    sim->getJointVelocities("mailbox", mailbox->_dq);
+                }
             }
+            mailbox->updateModel();
+
+            
 
             // simulation loop is done
 	        fSimulationLoopDone = true;
@@ -485,24 +515,34 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
 	        // ask for next control loop
 	        fControllerLoopDone = false;
 
-            // write new robot state to redis
-            redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
-            redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
-            redis_client.setEigenMatrixJSON(LETTER_JOINT_ANGLES_KEY, letter->_q);
-            redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
-            redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
-            redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
+            try {
+                // write new robot state to redis
+                redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
+                redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
+                redis_client.setEigenMatrixJSON(LETTER_JOINT_ANGLES_KEY, letter->_q);
+                redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
+                redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
+                redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
 
-            redis_data.at(0) = std::pair<string, string>(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
-	        redis_data.at(1) = std::pair<string, string>(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone)); // ask for next control loop
-            redis_client.pipeset(redis_data);
+                redis_data.at(0) = std::pair<string, string>(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
+                redis_data.at(1) = std::pair<string, string>(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone)); // ask for next control loop
+                redis_client.pipeset(redis_data);
+            } catch (...) {
+                cout << "caught redis exception" << endl;
+                break;
+            }
 
             //update last time
             last_time = curr_time;
         }
 
         // read controller state
-        fControllerLoopDone = string_to_bool(redis_client.get(CONTROLLER_LOOP_DONE_KEY));
+        try {
+            fControllerLoopDone = string_to_bool(redis_client.get(CONTROLLER_LOOP_DONE_KEY));
+        } catch (...) {
+            cout << "caught redis exception" << endl;
+            break;
+        }
     }
 
     double end_time = timer.elapsedTime();
