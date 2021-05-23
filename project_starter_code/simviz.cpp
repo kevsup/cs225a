@@ -446,11 +446,11 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
             letter->updateModel();
 
 
-            if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX || state_vector(0) == GRAB_MAIL) {
+            if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX) {
                 sim->getJointPositions("mailbox", mailbox->_q);
                 sim->getJointVelocities("mailbox", mailbox->_dq);
                 mailbox->updateModel();
-            } else if (state_vector(0) == PLACE_MAIL) {
+            } else if (state_vector(0) == PLACE_MAIL || state_vector(0) == GRAB_MAIL) {
                 mailbox->_q(0) = -1.57;
                 sim->setJointPositions("mailbox", mailbox->_q);
                 VectorXd lid_vel(mailbox->dof());
