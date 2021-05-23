@@ -3,7 +3,7 @@
 typedef enum {INIT, WAIT_FOR_BOX, SCAN_FOR_BOX, OPEN_BOX, GRAB_MAIL, PLACE_MAIL, CLOSE_BOX, RETRACT_ARM} States;
 typedef enum {MOVE_OVERHEAD, DROP_DOWN, GRIP_PARCEL} MailStates;
 typedef enum {FRONT, INSIDE, RELEASE, BACKOUT} PlaceStates;
-typedef enum {MOVE_IN_FRONT, MOVE_TO_HANDLE, GRIP_HANDLE, PAIN} BoxStates;
+typedef enum {MOVE_IN_FRONT, MOVE_TO_HANDLE, GRIP_HANDLE, PAIN, OPEN_BACKOUT} BoxStates;
 
 const std::string JOINT_ANGLES_KEY = "sai2::cs225a::project::sensors::q";
 const std::string JOINT_VELOCITIES_KEY = "sai2::cs225a::project::sensors::dq";

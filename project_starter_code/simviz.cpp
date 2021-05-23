@@ -446,24 +446,37 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
             letter->updateModel();
 
 
-            if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX) {
-                sim->getJointPositions("mailbox", mailbox->_q);
-                sim->getJointVelocities("mailbox", mailbox->_dq);
-                mailbox->updateModel();
-            } else if (state_vector(0) == PLACE_MAIL || state_vector(0) == GRAB_MAIL) {
-                mailbox->_q(0) = -1.57;
-                sim->setJointPositions("mailbox", mailbox->_q);
-                VectorXd lid_vel(mailbox->dof());
-                lid_vel.setZero();
-                sim->setJointVelocities("mailbox", lid_vel);
-                mailbox->updateModel();
-            } else {
+            // if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX) {
+            //     sim->getJointPositions("mailbox", mailbox->_q);
+            //     sim->getJointVelocities("mailbox", mailbox->_dq);
+            //     mailbox->updateModel();
+            // } else if (state_vector(0) == PLACE_MAIL || state_vector(0) == GRAB_MAIL) {
+            //     mailbox->_q(0) = -1.57;
+            //     sim->setJointPositions("mailbox", mailbox->_q);
+            //     VectorXd lid_vel(mailbox->dof());
+            //     lid_vel.setZero();
+            //     sim->setJointVelocities("mailbox", lid_vel);
+            //     mailbox->updateModel();
+            // } else {
+            //     mailbox->_q(0) = 0;
+            //     sim->setJointPositions("mailbox", mailbox->_q);
+            //     VectorXd lid_vel(mailbox->dof());
+            //     lid_vel.setZero();
+            //     sim->setJointVelocities("mailbox", lid_vel);
+            //     mailbox->updateModel(); 
+            // }
+
+            if (state_vector(0) == WAIT_FOR_BOX) {
                 mailbox->_q(0) = 0;
                 sim->setJointPositions("mailbox", mailbox->_q);
                 VectorXd lid_vel(mailbox->dof());
                 lid_vel.setZero();
                 sim->setJointVelocities("mailbox", lid_vel);
                 mailbox->updateModel(); 
+            } else {
+                sim->getJointPositions("mailbox", mailbox->_q);
+                sim->getJointVelocities("mailbox", mailbox->_dq);
+                mailbox->updateModel();
             }
 
             // simulation loop is done

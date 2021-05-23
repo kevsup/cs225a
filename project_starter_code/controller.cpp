@@ -70,6 +70,7 @@ std::string ROBOT_GRAVITY_KEY;
 
 unsigned long long controller_counter = 0;
 Matrix3d selectionMatrix = Matrix3d::Identity(3,3);
+Vector3d handlePos;
 
 const bool inertia_regularization = true;
 
@@ -380,14 +381,27 @@ void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vect
         {
             Vector3d xd(6.26-0.13, 1 - 0.575 - 0.15 -0.21, -1.32 + 1.84 + 0.21);
             selectionMatrix(2,2) = 0; // zero out z-direction
-            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.005, true, false)) {
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.02, true, false)) {
                 q_desired = robot->_q;
                 grip_time_init = time;
                 cout << "Next: grip parcel" << endl;
                 selectionMatrix = Matrix3d::Identity(3,3);
-                state = GRAB_MAIL;
+                robot->position(handlePos, CONTROL_LINK, CONTROL_POINT);
+                box_state = OPEN_BACKOUT;
             }
 
+            break;
+        }
+        case OPEN_BACKOUT:
+        {
+            Vector3d xd = handlePos;
+            xd(1) -= 0.1;
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, false)) {
+                box_state = MOVE_IN_FRONT;
+                state = GRAB_MAIL;
+                q_desired = robot->_q;
+                cout << "Next: close box" << endl;
+            }
             break;
         }
         default:
@@ -648,14 +662,22 @@ bool moveGripperToBox(Vector3d &xd, Sai2Model::Sai2Model* &robot, VectorXd &q_de
         q_desired << q_desired.head(TRUCK_JTS), initial_q.segment(TRUCK_JTS, ARM_JTS + GRIP_JTS);
     }
     moveArm(xd, Rd, q_desired, command_torques, robot);
-    Vector3d x;
+    Vector3d x, x_dot;
     robot->position(x, CONTROL_LINK, CONTROL_POINT);
+    robot->linearVelocity(x_dot, CONTROL_LINK, CONTROL_POINT);
     if (selectionMatrix == Matrix3d::Identity(3,3)) {
-        return (x - xd).norm() < 0.01 && robot->_dq.norm() < vel_threshold;
+        return (x - xd).norm() < 0.01 && x_dot.norm() < vel_threshold;
+    // } else if (selectionMatrix(2,2) == 0) {
+    //     return robot->_dq.norm() < vel_threshold;
+    // } else {
+    //     return robot->_dq.norm() < vel_threshold;
+    // }
     } else if (selectionMatrix(2,2) == 0) {
-        return x(1) - xd(1) < 0.01 && robot->_dq(1) < vel_threshold;
+        cout << "end effector velocity" << x_dot.norm() << endl;
+        cout << "y velcity" << x_dot(1) << endl;
+        return abs(x(1) - xd(1)) < 0.1 && x_dot.norm() < vel_threshold;
     } else {
-        return x(2) - xd(2) < 0.01 && robot->_dq(2) < vel_threshold;
+        return abs(x(2) - xd(2)) < 0.1 && x_dot.norm() < vel_threshold;
     }
 }
 
