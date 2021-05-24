@@ -13,7 +13,7 @@
 
     <robot name="mailbox">
         <model dir="./resources" path="mailbox.urdf" name="mailbox" />
-        <origin xyz="6.26 1 -1.32" rpy="1.57 0 -1.57" />
+        <origin xyz="6.26 1.1 -1.22" rpy="1.57 0 -1.57" />
     </robot>
 
     <!-- <static_object name="mailbox">
@@ -28,7 +28,7 @@
 
     <static_object name="boxfloor">
         <collision>
-        <origin xyz="6.1 0.6 0.52" rpy="0 0 0" />
+        <origin xyz="6.1 0.7 0.621" rpy="0 0 0" />
         <geometry>
           <box size="0.3 0.5 0.005" />
         </geometry>
@@ -37,7 +37,7 @@
 
     <static_object name="boxwall1">
         <collision>
-        <origin xyz="6.01 0.6 0.68" rpy="0 0 0" />
+        <origin xyz="6.01 0.7 0.69" rpy="0 0 0" />
         <geometry>
           <box size="0.005 0.5 0.3" />
         </geometry>
@@ -46,7 +46,7 @@
 
     <static_object name="boxwall2">
         <collision>
-        <origin xyz="6.24 0.6 0.68" rpy="0 0 0" />
+        <origin xyz="6.24 0.7 0.69" rpy="0 0 0" />
         <geometry>
           <box size="0.005 0.6 0.3" />
         </geometry>

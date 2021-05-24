@@ -289,7 +289,11 @@ int main() {
     // stop simulation
     fSimulationRunning = false;
     fSimulationLoopDone = false;
-    redis_client.set(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
+    try {
+        redis_client.set(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
+    } catch (...) {
+        cout << "caught redis exception" << endl;
+    }
     sim_thread.join();
 
     // destroy context
@@ -445,7 +449,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
                 VectorXd letter_vel(letter->dof());
                 letter_vel.setZero();
                 sim->setJointVelocities("letter", letter_vel);
-            } else if (state_vector(0) == BACKOUT) {
+            } else if (state_vector(0) == BACKOUT_MESSAGE_ENCODING) {
                 // hack for now: prevent the gripper from dragging the letter with friction
                 VectorXd letter_vel(letter->dof());
                 letter_vel.setZero();
@@ -484,7 +488,7 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
                 VectorXd lid_vel(mailbox->dof());
                 lid_vel.setZero();
                 sim->setJointVelocities("mailbox", lid_vel);
-            } else if (state_vector(0) == OPEN_BACKOUT) {
+            } else if (state_vector(0) == OPEN_BACKOUT_MESSAGE_ENCODING) {
                 mailbox->_q(0) = -M_PI/2;
                 sim->setJointPositions("mailbox", mailbox->_q);
                 VectorXd lid_vel(mailbox->dof());
@@ -519,8 +523,8 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
                 // write new robot state to redis
                 redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
                 redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
-                redis_client.setEigenMatrixJSON(LETTER_JOINT_ANGLES_KEY, letter->_q);
-                redis_client.setEigenMatrixJSON(LETTER_JOINT_VELOCITIES_KEY, letter->_dq);
+                redis_client.setEigenMatrixJSON(MAILBOX_JOINT_ANGLES_KEY, mailbox->_q);
+                redis_client.setEigenMatrixJSON(MAILBOX_JOINT_VELOCITIES_KEY, mailbox->_dq);
                 redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
                 redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
 
@@ -544,6 +548,8 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
             break;
         }
     }
+
+    fSimulationRunning = false;
 
     double end_time = timer.elapsedTime();
     std::cout << "\n";
