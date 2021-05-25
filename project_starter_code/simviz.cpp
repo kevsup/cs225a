@@ -14,6 +14,7 @@
 #include "force_sensor/ForceSensorDisplay.h"
 #include <signal.h>
 #include "project_constants.h"
+#include <vector>
 
 bool fSimulationRunning = false;
 void sighandler(int){fSimulationRunning = false;}
@@ -38,9 +39,8 @@ ForceSensorSim* force_sensor;
 ForceSensorDisplay* force_display;
 
 // simulation function prototype
-void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
-//void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
-// void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
+void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
+//void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 
 // callback to print glfw errors
 void glfwError(int error, const char* description);
@@ -79,6 +79,10 @@ bool fRobotLinkSelect = false;
 // flag for controlling mailbox lid
 bool freezeLid = false;
 
+int letterIdx = 0;
+const int NUM_LETTERS = 3;
+bool updateLetterIdx = false;
+
 int main() {
     cout << "Loading URDF world model file: " << world_file << endl;
 
@@ -101,7 +105,16 @@ int main() {
     // robot->updateModel();
 
     // load robot objects
-    auto letter = new Sai2Model::Sai2Model(letter_file, false);
+    vector<Sai2Model::Sai2Model*> letters;
+    vector<string> letterNames;
+    for (int i = 0; i < NUM_LETTERS; i++) {
+        auto letter = new Sai2Model::Sai2Model(letter_file, false);
+        letters.push_back(letter);
+        string name = "letter" + to_string(i + 1);
+        letterNames.push_back(name);
+    }
+
+
     auto mailbox = new Sai2Model::Sai2Model(mailbox_file, false);
     // letter->updateModel();
 
@@ -122,9 +135,11 @@ int main() {
     sim->getJointVelocities(robot_name, robot->_dq);
     robot->updateKinematics();
 
-    sim->getJointPositions("letter", letter->_q);
-    sim->getJointVelocities("letter", letter->_dq);
-    letter->updateKinematics();
+    for (int i = 0; i < NUM_LETTERS; i++) {
+        sim->getJointPositions(letterNames[letterIdx], letters[letterIdx]->_q);
+        sim->getJointVelocities(letterNames[letterIdx], letters[letterIdx]->_dq);
+        letters[letterIdx]->updateKinematics();
+    }
 
     sim->getJointPositions("mailbox", mailbox->_q);
     sim->getJointVelocities("mailbox", mailbox->_dq);
@@ -175,7 +190,8 @@ int main() {
 	redis_client.set(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone));
 
     fSimulationRunning = true;
-    thread sim_thread(simulation, robot, letter, mailbox, sim, ui_force_widget);
+    thread sim_thread(simulation, robot, letters, letterNames, mailbox, sim, ui_force_widget);
+    //thread sim_thread(simulation, robot, letter, mailbox, sim, ui_force_widget);
     // thread sim_thread(simulation, robot, sim, ui_force_widget);
     
     // while window is open:
@@ -185,7 +201,9 @@ int main() {
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         graphics->updateGraphics(robot_name, robot);
-        graphics->updateGraphics("letter", letter);
+        for (int i = 0; i < NUM_LETTERS; i++) {
+            graphics->updateGraphics(letterNames[i], letters[i]);
+        }
         graphics->updateGraphics("mailbox", mailbox);
         force_display->update();
         graphics->render(camera_name, width, height);
@@ -307,7 +325,7 @@ int main() {
 }
 
 //------------------------------------------------------------------------------
-void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
+void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 //void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 // void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 
@@ -443,23 +461,51 @@ void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2M
                 //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
                 //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
                 // }
+
+                updateLetterIdx = true;
             } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
-                letter->_q(1) = -robot->_q(0);
-                sim->setJointPositions("letter", letter->_q);
-                VectorXd letter_vel(letter->dof());
+                letters[letterIdx]->_q(1) = -robot->_q(0);
+                sim->setJointPositions(letterNames[letterIdx], letters[letterIdx]->_q);
+                VectorXd letter_vel(letters[letterIdx]->dof());
                 letter_vel.setZero();
-                sim->setJointVelocities("letter", letter_vel);
+                sim->setJointVelocities(letterNames[letterIdx], letter_vel);
             } else if (state_vector(0) == BACKOUT_MESSAGE_ENCODING) {
                 // hack for now: prevent the gripper from dragging the letter with friction
-                VectorXd letter_vel(letter->dof());
+                VectorXd letter_vel(letters[letterIdx]->dof());
                 letter_vel.setZero();
-                sim->setJointVelocities("letter", letter_vel);
+                sim->setJointVelocities(letterNames[letterIdx], letter_vel);
+            } else if (state_vector(0) == RETRACT_ARM) {
+                if (updateLetterIdx) {
+                    letterIdx++;
+                    updateLetterIdx = false;
+                } else {
+                    double letter_offset = 0.2;
+                    if (letters[letterIdx]->_q(0) < letter_offset) {
+                        for (int i = letterIdx; i < NUM_LETTERS; i++) {
+                            letters[i]->_q(0) += 0.0005;
+                            sim->setJointPositions(letterNames[i], letters[i]->_q);
+                            VectorXd letter_vel(letters[i]->dof());
+                            letter_vel.setZero();
+                            sim->setJointVelocities(letterNames[i], letter_vel);
+                            letters[i]->updateModel();
+                        }
+                    }
+                }
             } else {
-                sim->getJointPositions("letter", letter->_q);
-                sim->getJointVelocities("letter", letter->_dq);
+                sim->getJointPositions(letterNames[letterIdx], letters[letterIdx]->_q);
+                sim->getJointVelocities(letterNames[letterIdx], letters[letterIdx]->_dq);
                 mailGripped = true;
             }
-            letter->updateModel();
+            letters[letterIdx]->updateModel();
+
+            for (int i = letterIdx + 1; i < NUM_LETTERS; i++) {
+                letters[i]->_q(1) = -robot->_q(0);
+                sim->setJointPositions(letterNames[i], letters[i]->_q);
+                VectorXd letter_vel(letters[i]->dof());
+                letter_vel.setZero();
+                sim->setJointVelocities(letterNames[i], letter_vel);
+                letters[i]->updateModel();
+            }
 
 
             // if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX) {

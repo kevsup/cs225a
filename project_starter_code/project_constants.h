@@ -28,3 +28,4 @@ const string robot_name = "mmp_panda";
 const string camera_name = "camera_fixed";
 const string letter_file = "./resources/letter.urdf";
 const string mailbox_file = "./resources/mailbox.urdf";
+
