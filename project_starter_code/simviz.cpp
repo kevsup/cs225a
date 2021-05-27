@@ -100,6 +100,10 @@ int main() {
     // load graphics scene
     auto graphics = new Sai2Graphics::Sai2Graphics(world_file, true);
     graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
+    graphics->getCamera(camera_name)->setClippingPlanes(0.1,20);
+
+    //cout << "\n\n\nnear plane = " << graphics->getCamera(camera_name)->getNearClippingPlane() << endl;;
+    //cout << "\n\n\nfar plane = " << graphics->getCamera(camera_name)->getFarClippingPlane() << endl;;
 
     camera_pos_init = camera_pos;
     camera_lookat_init = camera_lookat;
