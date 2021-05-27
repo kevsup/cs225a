@@ -171,11 +171,12 @@
         <!-- this is good for seeing full car <position xyz="6.4 2 1.5" /> -->
 
         <!-- this is good for seeing close up of arm -->
-        <position xyz="5 1 1" />
+        <!-- <position xyz="5 1 1" /> -->
         <!--  <position xyz="0 2 1" /> -->
+        <position xyz= "-1 1 1" />
         <vertical xyz="0.0 0.0 1.0" />
-        <lookat xyz="6.0 0.0 0.5" />
-        <!-- <lookat xyz="0 0.0 0.5" /> -->
+        <!-- <lookat xyz="6.0 0.0 0.5" /> -->
+        <lookat xyz="0 0.0 0.5" />
     </camera>
 
 </world>

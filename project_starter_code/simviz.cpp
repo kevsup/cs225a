@@ -81,6 +81,8 @@ bool freezeLid = false;
 
 const int NUM_LETTERS = 3;
 
+Eigen::Vector3d camera_pos, camera_lookat, camera_vertical;
+
 int main() {
     cout << "Loading URDF world model file: " << world_file << endl;
 
@@ -95,8 +97,14 @@ int main() {
 
     // load graphics scene
     auto graphics = new Sai2Graphics::Sai2Graphics(world_file, true);
-    Eigen::Vector3d camera_pos, camera_lookat, camera_vertical;
     graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
+
+    Vector3d camera_pos_init = camera_pos;
+    Vector3d camera_lookat_init = camera_lookat;
+
+    Vector3d camera_track;
+    camera_track.setZero();
+    redis_client.setEigenMatrixJSON(CAMERA_TRACK_KEY, camera_track);
 
     // load robots
     auto robot = new Sai2Model::Sai2Model(robot_file, false);
@@ -225,8 +233,10 @@ int main() {
 
         // move scene camera as required
         // graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
+
         Eigen::Vector3d cam_depth_axis;
         cam_depth_axis = camera_lookat - camera_pos;
+
         cam_depth_axis.normalize();
         Eigen::Vector3d cam_up_axis;
         // cam_up_axis = camera_vertical;

@@ -332,6 +332,8 @@ int main() {
             fSimulationLoopDone = false;
             redis_client.set(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
             controller_counter++;
+
+            redis_client.setEigenMatrixJSON(CAMERA_TRACK_KEY, robot->_q.head(TRUCK_JTS));
         }
 
         // controller loop is done
