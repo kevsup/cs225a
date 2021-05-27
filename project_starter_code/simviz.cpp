@@ -367,6 +367,7 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
     bool mailGripped = false;
     int letterIdx = 0;
     bool updateLetterIdx = true;
+    bool freezeBox = false;
 
     /*
     Vector3d camera_pos, mailbox_pos;  // init camera detection variables 
@@ -487,21 +488,23 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
                 // }
                 camera_pos = camera_pos_init;
-                camera_pos(0) += 6 * (1 + letterIdx);
+                camera_pos(0) += HOUSE_OFFSET * (1 + letterIdx);
             } else if (!updateLetterIdx && state_vector(0) == WAIT_FOR_BOX) {
                 updateLetterIdx = true;
                 mailGripped = false;
+                freezeBox = false;
             } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
                 letters[letterIdx]->_q(1) = -robot->_q(0);
                 sim->setJointPositions(letterNames[letterIdx], letters[letterIdx]->_q);
                 VectorXd letter_vel(letters[letterIdx]->dof());
                 letter_vel.setZero();
                 sim->setJointVelocities(letterNames[letterIdx], letter_vel);
-            } else if (state_vector(0) == BACKOUT_MESSAGE_ENCODING) {
+            } else if (state_vector(0) == BACKOUT_MESSAGE_ENCODING || (freezeBox && state_vector(0) != RETRACT_ARM)) {
                 // hack for now: prevent the gripper from dragging the letter with friction
                 VectorXd letter_vel(letters[letterIdx]->dof());
                 letter_vel.setZero();
                 sim->setJointVelocities(letterNames[letterIdx], letter_vel);
+                freezeBox = true;
             } else if (state_vector(0) == RETRACT_ARM) {
                 if (updateLetterIdx) {
                     if (letterIdx + 1 < letters.size()) {
@@ -510,7 +513,7 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                         updateLetterIdx = false;
                     }
                 } else {
-                    double letter_offset = 0.4 * (letterIdx);
+                    double letter_offset = LETTER_GAP * (letterIdx);
                     if (letters[letterIdx]->_q(0) < letter_offset) {
                         for (int i = letterIdx; i < NUM_LETTERS; i++) {
                             letters[i]->_q(0) += 0.001;
@@ -569,6 +572,17 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 }
             }
             mailboxes[letterIdx]->updateModel();
+
+            for (int i = 0; i < NUM_LETTERS; i++) {
+                if (i != letterIdx) {
+                    mailboxes[i]->_q(0) = 0;
+                    sim->setJointPositions(mailboxNames[i], mailboxes[i]->_q);
+                    VectorXd lid_vel(mailboxes[i]->dof());
+                    lid_vel.setZero();
+                    sim->setJointVelocities(mailboxNames[i], lid_vel);
+                    mailboxes[i]->updateModel();
+                }
+            }
 
             
 

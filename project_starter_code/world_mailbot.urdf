@@ -13,12 +13,12 @@
 
     <robot name="letter2">
         <model dir="./resources" path="box2.urdf" name="letter" />
-        <origin xyz="-0.55 -0.4 1.8" rpy="-1.57 1.57 0" />
+        <origin xyz="-0.55 -0.35 1.8" rpy="-1.57 1.57 0" />
     </robot>
 
     <robot name="letter3">
         <model dir="./resources" path="box3.urdf" name="letter" />
-        <origin xyz="-0.55 -0.8 1.8" rpy="-1.57 1.57 0" />
+        <origin xyz="-0.55 -0.7 1.8" rpy="-1.57 1.57 0" />
     </robot>
 
     <robot name="mailbox1">
@@ -163,6 +163,26 @@
         <origin xyz="0 0 0" rpy="0 0 0" />
         <visual>
             <origin xyz="4 4 0" rpy="1.57 0 0" />
+            <geometry>
+                <mesh filename="./resources/../../../model/project_models/big_house.obj" scale=".009 .009 .009"/>
+            </geometry>
+        </visual>
+    </static_object>
+
+    <static_object name="big_house2">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <visual>
+            <origin xyz="10 4 0" rpy="1.57 0 0" />
+            <geometry>
+                <mesh filename="./resources/../../../model/project_models/big_house.obj" scale=".009 .009 .009"/>
+            </geometry>
+        </visual>
+    </static_object>
+
+    <static_object name="big_house3">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <visual>
+            <origin xyz="16 4 0" rpy="1.57 0 0" />
             <geometry>
                 <mesh filename="./resources/../../../model/project_models/big_house.obj" scale=".009 .009 .009"/>
             </geometry>

@@ -50,9 +50,9 @@
         <inertia ixx="1e-2" iyy="1e-2" izz="1e-2" ixy="0" ixz="0" iyz="0" />
       </inertial>
       <visual>
-        <origin xyz="1.45 0 0" rpy="0 1.57 0" />
+        <origin xyz="1.4 0 0" rpy="0 1.57 0" />
         <geometry>
-          <mesh filename="../../../model/project_models/package.obj" scale="0.02 0.1 0.14"/>
+          <mesh filename="../../../model/project_models/package.obj" scale="0.02 0.1 0.10"/>
         </geometry>
       </visual> 
       <collision>

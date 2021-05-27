@@ -63,8 +63,8 @@ const Vector3d CONTROL_POINT = Vector3d(0.0,0.0,0.07);
 
 
 const Vector3d CLOSED_HANDLE_POS = Vector3d(0.13, 0.345, 0.83);
-const vector<double> houseX{0, 6, 12, 18};
-const vector<double> boxHeight{0, -0.1, -0.08};
+const vector<double> houseX{0, HOUSE_OFFSET * 1, HOUSE_OFFSET * 2, HOUSE_OFFSET * 3};
+const vector<double> boxHeight{0, -0.09, -0.08};
 int houseIdx = 1;
 
     /*
@@ -158,7 +158,7 @@ int main() {
     redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
 
     //intialize counter
-    int counter = 0;
+    int scanCounter = 0;
 
     while (runloop) {
         // wait for next scheduled loop
@@ -209,7 +209,12 @@ int main() {
                 }
                 case SCAN_FOR_BOX:
                 {
-                    state = OPEN_BOX;
+                    if (scanCounter > 5) {
+                        state = OPEN_BOX;
+                        scanCounter = 0;
+                    } else {
+                        scanCounter++;
+                    }
                     // detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
                     // if (detection_vector(0) == 1){
                     //     cout << "Next: open box!!!!" << endl;
@@ -653,7 +658,7 @@ void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Ve
             command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq);  
            
             // release for a fixed amount of time
-            if (time - grip_time_init > 1) {
+            if (time - grip_time_init > 0.5) {
                 place_state = BACKOUT;
                 q_desired = robot->_q;
                 cout << "Next: backout" << endl;
@@ -703,8 +708,8 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques,
     double kv = 20;
     double kpj = 200;   // for posture / joint space control
     double kvj = 50;
-    double kpg = state == PLACE_MAIL ? 900 : 900;   // for gripper
-    double kvg = state == PLACE_MAIL ? 60 : 60;
+    double kpg = state == PLACE_MAIL ? 1000 : 900;   // for gripper
+    double kvg = state == PLACE_MAIL ? 63 : 60;
 
     Vector3d x, x_dot;
     robot->position(x, CONTROL_LINK, CONTROL_POINT);

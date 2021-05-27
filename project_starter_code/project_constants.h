@@ -34,3 +34,5 @@ const string letter_file = "./resources/letter.urdf";
 const vector<string> box_files{"./resources/box1.urdf", "./resources/box2.urdf", "./resources/box3.urdf"};
 const string mailbox_file = "./resources/mailbox.urdf";
 
+const double LETTER_GAP = 0.35;
+const double HOUSE_OFFSET = 6;
