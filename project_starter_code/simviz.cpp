@@ -118,7 +118,8 @@ int main() {
     vector<Sai2Model::Sai2Model*> mailboxes;
     vector<string> mailboxNames;
     for (int i = 0; i < NUM_LETTERS; i++) {
-        auto letter = new Sai2Model::Sai2Model(letter_file, false);
+        //auto letter = new Sai2Model::Sai2Model(letter_file, false);
+        auto letter = new Sai2Model::Sai2Model(box_files[i], false);
         letters.push_back(letter);
         string name = "letter" + to_string(i + 1);
         letterNames.push_back(name);
@@ -236,8 +237,6 @@ int main() {
         lock_guard<mutex> guard(camera_lock);
         // move scene camera as required
         // graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
-
-        cout << "camera pos = " << camera_pos << endl;
 
         Eigen::Vector3d cam_depth_axis;
         cam_depth_axis = camera_lookat - camera_pos;
@@ -406,7 +405,7 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
 				    command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
                     Vector3d camera_track = redis_client.getEigenMatrixJSON(CAMERA_TRACK_KEY);
                     camera_lock.lock();
-                    camera_pos = camera_pos_init + camera_track;
+                    //camera_pos = camera_pos_init + camera_track;
                     camera_lookat = camera_lookat_init + camera_track;
                     camera_lock.unlock();
                 } catch (...) {
@@ -487,7 +486,8 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
                 //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
                 // }
-
+                camera_pos = camera_pos_init;
+                camera_pos(0) += 6 * (1 + letterIdx);
             } else if (!updateLetterIdx && state_vector(0) == WAIT_FOR_BOX) {
                 updateLetterIdx = true;
                 mailGripped = false;
@@ -510,10 +510,10 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                         updateLetterIdx = false;
                     }
                 } else {
-                    double letter_offset = 0.2 * (letterIdx);
+                    double letter_offset = 0.4 * (letterIdx);
                     if (letters[letterIdx]->_q(0) < letter_offset) {
                         for (int i = letterIdx; i < NUM_LETTERS; i++) {
-                            letters[i]->_q(0) += 0.0005;
+                            letters[i]->_q(0) += 0.001;
                             sim->setJointPositions(letterNames[i], letters[i]->_q);
                             VectorXd letter_vel(letters[i]->dof());
                             letter_vel.setZero();

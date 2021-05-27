@@ -62,8 +62,9 @@ const string CONTROL_LINK= "link7";
 const Vector3d CONTROL_POINT = Vector3d(0.0,0.0,0.07);
 
 
-const Vector3d CLOSED_HANDLE_POS = Vector3d(0.13, 0.245 + 0.1, 0.73 + 0.1);
+const Vector3d CLOSED_HANDLE_POS = Vector3d(0.13, 0.345, 0.83);
 const vector<double> houseX{0, 6, 12, 18};
+const vector<double> boxHeight{0, -0.1, -0.08};
 int houseIdx = 1;
 
     /*
@@ -567,7 +568,7 @@ void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vec
         }
         case DROP_DOWN:
         {
-            Vector3d xd = Vector3d(houseX[houseIdx] - 0.6, 0, 0.62);
+            Vector3d xd = Vector3d(houseX[houseIdx] - 0.6, 0, 0.62 + boxHeight[houseIdx - 1]);
             if (moveGripperToParcel(xd, robot, q_desired, command_torques, initial_q, 0.01)) {
                 mail_state = GRIP_PARCEL;
                 q_desired = robot->_q;
@@ -702,8 +703,8 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques,
     double kv = 20;
     double kpj = 200;   // for posture / joint space control
     double kvj = 50;
-    double kpg = state == PLACE_MAIL ? 2500 : 900;   // for gripper
-    double kvg = state == PLACE_MAIL ? 100 : 60;
+    double kpg = state == PLACE_MAIL ? 900 : 900;   // for gripper
+    double kvg = state == PLACE_MAIL ? 60 : 60;
 
     Vector3d x, x_dot;
     robot->position(x, CONTROL_LINK, CONTROL_POINT);

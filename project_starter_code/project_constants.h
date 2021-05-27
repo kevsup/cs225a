@@ -1,4 +1,7 @@
 #include <string>
+#include <vector>
+
+using namespace std;
 
 typedef enum {INIT, WAIT_FOR_BOX, SCAN_FOR_BOX, OPEN_BOX, GRAB_MAIL, PLACE_MAIL, CLOSE_BOX, RETRACT_ARM} States;
 typedef enum {MOVE_OVERHEAD, DROP_DOWN, GRIP_PARCEL} MailStates;
@@ -28,5 +31,6 @@ const string robot_file = "./resources/mmp_panda.urdf";
 const string robot_name = "mmp_panda";
 const string camera_name = "camera_fixed";
 const string letter_file = "./resources/letter.urdf";
+const vector<string> box_files{"./resources/box1.urdf", "./resources/box2.urdf", "./resources/box3.urdf"};
 const string mailbox_file = "./resources/mailbox.urdf";
 
