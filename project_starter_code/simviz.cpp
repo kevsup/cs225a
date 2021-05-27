@@ -15,6 +15,7 @@
 #include <signal.h>
 #include "project_constants.h"
 #include <vector>
+#include <mutex>
 
 bool fSimulationRunning = false;
 void sighandler(int){fSimulationRunning = false;}
@@ -81,7 +82,8 @@ bool freezeLid = false;
 
 const int NUM_LETTERS = 3;
 
-Eigen::Vector3d camera_pos, camera_lookat, camera_vertical;
+Eigen::Vector3d camera_pos, camera_lookat, camera_vertical, camera_pos_init, camera_lookat_init;
+mutex camera_lock;
 
 int main() {
     cout << "Loading URDF world model file: " << world_file << endl;
@@ -99,8 +101,8 @@ int main() {
     auto graphics = new Sai2Graphics::Sai2Graphics(world_file, true);
     graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
 
-    Vector3d camera_pos_init = camera_pos;
-    Vector3d camera_lookat_init = camera_lookat;
+    camera_pos_init = camera_pos;
+    camera_lookat_init = camera_lookat;
 
     Vector3d camera_track;
     camera_track.setZero();
@@ -231,6 +233,7 @@ int main() {
         // poll for events
         glfwPollEvents();
 
+        lock_guard<mutex> guard(camera_lock);
         // move scene camera as required
         // graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
 
@@ -395,6 +398,12 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 // read arm torques from redis and apply to simulated robot
                 try {
 				    command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
+                    Vector3d camera_track = redis_client.getEigenMatrixJSON(CAMERA_TRACK_KEY);
+                    camera_lock.lock();
+                    camera_pos = camera_pos_init + camera_track;
+                    camera_lookat = camera_lookat_init + camera_track;
+                    cout << "camera pos = " << camera_pos << endl;
+                    camera_lock.unlock();
                 } catch (...) {
                     cout << "caught redis exception" << endl;
                     break;
