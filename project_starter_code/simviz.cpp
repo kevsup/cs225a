@@ -319,6 +319,8 @@ int main() {
         }
     }
 
+    cout << "done" << endl;
+
     // stop simulation
     fSimulationRunning = false;
     fSimulationLoopDone = false;
@@ -405,10 +407,9 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 try {
 				    command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
                     Vector3d camera_track = redis_client.getEigenMatrixJSON(CAMERA_TRACK_KEY);
-                    camera_lock.lock();
+                    lock_guard<mutex> guard(camera_lock);
                     //camera_pos = camera_pos_init + camera_track;
                     camera_lookat = camera_lookat_init + camera_track;
-                    camera_lock.unlock();
                 } catch (...) {
                     cout << "caught redis exception" << endl;
                     break;
@@ -487,6 +488,7 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
                 //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
                 // }
+                lock_guard<mutex> guard(camera_lock);
                 camera_pos = camera_pos_init;
                 camera_pos(0) += HOUSE_OFFSET * (1 + letterIdx);
             } else if (!updateLetterIdx && state_vector(0) == WAIT_FOR_BOX) {
