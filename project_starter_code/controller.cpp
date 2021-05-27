@@ -439,7 +439,7 @@ void closeBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vec
         {
             Vector3d xd = handlePos;
             xd(1) -= 0.1;
-            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, false)) {
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 1, false)) {
                 close_state = MOVE_IN_FRONT_CLOSE;
                 state = RETRACT_ARM;
                 q_desired = robot->_q;
@@ -541,7 +541,7 @@ void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vect
         {
             Vector3d xd = handlePos;
             xd(1) -= 0.1;
-            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, false)) {
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 1, false)) {
                 box_state = MOVE_IN_FRONT;
                 state = GRAB_MAIL;
                 q_desired = robot->_q;
