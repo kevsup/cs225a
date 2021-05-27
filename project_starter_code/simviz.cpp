@@ -237,6 +237,8 @@ int main() {
         // move scene camera as required
         // graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
 
+        cout << "camera pos = " << camera_pos << endl;
+
         Eigen::Vector3d cam_depth_axis;
         cam_depth_axis = camera_lookat - camera_pos;
 
@@ -366,8 +368,12 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
     bool mailGripped = false;
     int letterIdx = 0;
     bool updateLetterIdx = true;
+
+    /*
     Vector3d camera_pos, mailbox_pos;  // init camera detection variables 
     Matrix3d camera_ori;
+    */
+
     bool detect;
 
     // manual object offset since the offset in world.urdf file since positionInWorld() doesn't account for this 
@@ -402,7 +408,6 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                     camera_lock.lock();
                     camera_pos = camera_pos_init + camera_track;
                     camera_lookat = camera_lookat_init + camera_track;
-                    cout << "camera pos = " << camera_pos << endl;
                     camera_lock.unlock();
                 } catch (...) {
                     cout << "caught redis exception" << endl;
