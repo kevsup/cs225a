@@ -62,7 +62,9 @@ const string CONTROL_LINK= "link7";
 const Vector3d CONTROL_POINT = Vector3d(0.0,0.0,0.07);
 
 
-const Vector3d CLOSED_HANDLE_POS = Vector3d(6.13, 0.245 + 0.1, 0.73 + 0.1);
+const Vector3d CLOSED_HANDLE_POS = Vector3d(0.13, 0.245 + 0.1, 0.73 + 0.1);
+const vector<double> houseX{0, 6, 12, 18};
+int houseIdx = 1;
 
     /*
 std::string JOINT_TORQUES_SENSED_KEY;
@@ -139,7 +141,6 @@ int main() {
     joint_task->_kv = 20.0;
 
     VectorXd q_desired = initial_q;
-    q_desired(0) = 6;
 
     // create a timer
     LoopTimer timer;
@@ -193,7 +194,7 @@ int main() {
 
                     // Action: driving
                     q_desired = initial_q;
-                    q_desired(0) = 6;
+                    q_desired(0) = houseX[houseIdx];
                     moveTruck(q_desired, command_torques, robot, time - drive_time_init);
 
                     // Trigger: camera detects mailbox aka arrives at desired position
@@ -255,8 +256,13 @@ int main() {
                     q_desired << q_desired.head(TRUCK_JTS), initial_q.segment(TRUCK_JTS, ARM_JTS + GRIP_JTS);
                     moveTruck(q_desired, command_torques, robot, time);
 
-                    drive_time_init = time;
-                    //state = WAIT_FOR_BOX;
+                    if ((robot->_q - q_desired).norm() < 0.01 && robot->_dq.norm() < 0.01) {
+                        drive_time_init = time;
+                        if (houseIdx + 1 < houseX.size()) {
+                            houseIdx++;
+                            state = WAIT_FOR_BOX;
+                        }
+                    }
                     break;
                 }
                 default:
@@ -326,6 +332,8 @@ int main() {
             fSimulationLoopDone = false;
             redis_client.set(SIMULATION_LOOP_DONE_KEY, bool_to_string(fSimulationLoopDone));
             controller_counter++;
+
+            redis_client.setEigenMatrixJSON(CAMERA_TRACK_KEY, robot->_q.head(TRUCK_JTS));
         }
 
         // controller loop is done
@@ -392,7 +400,9 @@ void closeBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vec
         case PAIN_CLOSE:
         {
             selectionMatrix(1,1) = 0; // zero out y-direction
-            if (moveGripperToBox(CLOSED_HANDLE_POS, robot, q_desired, command_torques, initial_q, 0.01, true, false)) {
+            Vector3d xd = CLOSED_HANDLE_POS;
+            xd(0) += houseX[houseIdx];
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, true, false)) {
                 q_desired = robot->_q;
                 grip_time_init = time;
                 selectionMatrix = Matrix3d::Identity(3,3);
@@ -446,6 +456,7 @@ void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vect
         case MOVE_IN_FRONT:
         {
             Vector3d xd = CLOSED_HANDLE_POS;
+            xd(0) += houseX[houseIdx];
             xd(1) -= 0.12;
             if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 1, false, false)) {
                 box_state = MOVE_TO_HANDLE;
@@ -456,7 +467,9 @@ void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vect
         }
         case MOVE_TO_HANDLE:
         {
-            if (moveGripperToBox(CLOSED_HANDLE_POS, robot, q_desired, command_torques, initial_q, 0.01, false, false)) {
+            Vector3d xd = CLOSED_HANDLE_POS;
+            xd(0) += houseX[houseIdx];
+            if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, false, false)) {
                 box_state = GRIP_HANDLE;
                 q_desired = robot->_q;
                 grip_time_init = time;
@@ -485,6 +498,7 @@ void openBoxStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vect
         case PAIN:
         {
             Vector3d xd = CLOSED_HANDLE_POS;
+            xd(0) += houseX[houseIdx];
             xd(1) -= 0.18;
             xd(2) -= 0.2;
             selectionMatrix(2,2) = 0; // zero out z-direction
@@ -543,7 +557,7 @@ void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vec
     switch (mail_state) {
         case MOVE_OVERHEAD:
         {
-            Vector3d xd = Vector3d(5.6, 0, 0.8);
+            Vector3d xd = Vector3d(houseX[houseIdx] - 0.4, 0, 0.8);
             if (moveGripperToParcel(xd, robot, q_desired, command_torques, initial_q, 1)) {
                 mail_state = DROP_DOWN;
                 q_desired = robot->_q;
@@ -553,7 +567,7 @@ void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vec
         }
         case DROP_DOWN:
         {
-            Vector3d xd = Vector3d(5.4, 0, 0.62);
+            Vector3d xd = Vector3d(houseX[houseIdx] - 0.6, 0, 0.62);
             if (moveGripperToParcel(xd, robot, q_desired, command_torques, initial_q, 0.01)) {
                 mail_state = GRIP_PARCEL;
                 q_desired = robot->_q;
@@ -604,7 +618,7 @@ void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Ve
         case FRONT:
         {
             Vector3d xd = CLOSED_HANDLE_POS;
-            xd(0) += 0.02;
+            xd(0) += 0.02 + houseX[houseIdx];
             xd(1) -= 0.395;
             xd(2) -= 0.07;
             if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 1, true)) {
@@ -617,7 +631,7 @@ void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Ve
         case INSIDE:
         {
             Vector3d xd = CLOSED_HANDLE_POS;
-            xd(0) += 0.02;
+            xd(0) += 0.02 + houseX[houseIdx];
             xd(1) += 0.155;
             xd(2) -= 0.07;
             if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, true)) {
@@ -648,7 +662,7 @@ void placeMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Ve
         case BACKOUT:
         {
             Vector3d xd = CLOSED_HANDLE_POS;
-            xd(0) += 0.02;
+            xd(0) += 0.02 + houseX[houseIdx];
             xd(1) -= 0.345;
             xd(2) -= 0.07;
             if (moveGripperToBox(xd, robot, q_desired, command_torques, initial_q, 0.01, false)) {
@@ -673,7 +687,7 @@ void moveTruck(VectorXd q_desired, VectorXd &command_torques, Sai2Model::Sai2Mod
     double kv = 20;
     VectorXd b(robot->dof());
     robot->coriolisForce(b);
-    double qd_mid = MAX_TRUCK_VEL * drive_time;
+    double qd_mid = MAX_TRUCK_VEL * drive_time + houseX[houseIdx - 1];;
     if (q_desired(0) > qd_mid) {
         q_desired(0) = qd_mid;
     }
@@ -688,8 +702,8 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques,
     double kv = 20;
     double kpj = 200;   // for posture / joint space control
     double kvj = 50;
-    double kpg = 900;   // for gripper
-    double kvg = 60;
+    double kpg = state == PLACE_MAIL ? 2500 : 900;   // for gripper
+    double kvg = state == PLACE_MAIL ? 100 : 60;
 
     Vector3d x, x_dot;
     robot->position(x, CONTROL_LINK, CONTROL_POINT);
