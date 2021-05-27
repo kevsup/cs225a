@@ -21,9 +21,19 @@
         <origin xyz="-0.55 -0.4 1.8" rpy="-1.57 1.57 0" />
     </robot>
 
-    <robot name="mailbox">
+    <robot name="mailbox1">
         <model dir="./resources" path="mailbox.urdf" name="mailbox" />
         <origin xyz="6.26 1.1 -1.22" rpy="1.57 0 -1.57" />
+    </robot>
+
+    <robot name="mailbox2">
+        <model dir="./resources" path="mailbox.urdf" name="mailbox" />
+        <origin xyz="12.26 1.1 -1.22" rpy="1.57 0 -1.57" />
+    </robot>
+
+    <robot name="mailbox3">
+        <model dir="./resources" path="mailbox.urdf" name="mailbox" />
+        <origin xyz="18.26 1.1 -1.22" rpy="1.57 0 -1.57" />
     </robot>
 
     <!-- <static_object name="mailbox">
@@ -35,6 +45,60 @@
             </geometry>
         </visual>
     </static_object> -->
+
+    <static_object name="boxfloor_3">
+        <collision>
+        <origin xyz="12.1 0.7 0.621" rpy="0 0 0" />
+        <geometry>
+          <box size="0.3 0.5 0.005" />
+        </geometry>
+        </collision>
+    </static_object>
+
+    <static_object name="boxwall1_3">
+        <collision>
+        <origin xyz="12.01 0.7 0.69" rpy="0 0 0" />
+        <geometry>
+          <box size="0.005 0.5 0.3" />
+        </geometry>
+        </collision>
+    </static_object>
+
+    <static_object name="boxwall2_3">
+        <collision>
+        <origin xyz="12.24 0.7 0.69" rpy="0 0 0" />
+        <geometry>
+          <box size="0.005 0.6 0.3" />
+        </geometry>
+        </collision>
+    </static_object>
+
+    <static_object name="boxfloor_2">
+        <collision>
+        <origin xyz="18.1 0.7 0.621" rpy="0 0 0" />
+        <geometry>
+          <box size="0.3 0.5 0.005" />
+        </geometry>
+        </collision>
+    </static_object>
+
+    <static_object name="boxwall1_2">
+        <collision>
+        <origin xyz="18.01 0.7 0.69" rpy="0 0 0" />
+        <geometry>
+          <box size="0.005 0.5 0.3" />
+        </geometry>
+        </collision>
+    </static_object>
+
+    <static_object name="boxwall2_2">
+        <collision>
+        <origin xyz="18.24 0.7 0.69" rpy="0 0 0" />
+        <geometry>
+          <box size="0.005 0.6 0.3" />
+        </geometry>
+        </collision>
+    </static_object>
 
     <static_object name="boxfloor">
         <collision>

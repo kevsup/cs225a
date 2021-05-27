@@ -39,7 +39,7 @@ ForceSensorSim* force_sensor;
 ForceSensorDisplay* force_display;
 
 // simulation function prototype
-void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
+void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, vector<Sai2Model::Sai2Model*> mailboxes, vector<string> mailboxNames, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 //void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 
 // callback to print glfw errors
@@ -79,9 +79,7 @@ bool fRobotLinkSelect = false;
 // flag for controlling mailbox lid
 bool freezeLid = false;
 
-int letterIdx = 0;
 const int NUM_LETTERS = 3;
-bool updateLetterIdx = false;
 
 int main() {
     cout << "Loading URDF world model file: " << world_file << endl;
@@ -107,16 +105,19 @@ int main() {
     // load robot objects
     vector<Sai2Model::Sai2Model*> letters;
     vector<string> letterNames;
+    vector<Sai2Model::Sai2Model*> mailboxes;
+    vector<string> mailboxNames;
     for (int i = 0; i < NUM_LETTERS; i++) {
         auto letter = new Sai2Model::Sai2Model(letter_file, false);
         letters.push_back(letter);
         string name = "letter" + to_string(i + 1);
         letterNames.push_back(name);
+
+        auto mailbox = new Sai2Model::Sai2Model(mailbox_file, false);
+        mailboxes.push_back(mailbox);
+        string boxName = "mailbox" + to_string(i + 1);
+        mailboxNames.push_back(boxName);
     }
-
-
-    auto mailbox = new Sai2Model::Sai2Model(mailbox_file, false);
-    // letter->updateModel();
 
     // load simulation world
     auto sim = new Simulation::Sai2Simulation(world_file, false);
@@ -136,14 +137,14 @@ int main() {
     robot->updateKinematics();
 
     for (int i = 0; i < NUM_LETTERS; i++) {
-        sim->getJointPositions(letterNames[letterIdx], letters[letterIdx]->_q);
-        sim->getJointVelocities(letterNames[letterIdx], letters[letterIdx]->_dq);
-        letters[letterIdx]->updateKinematics();
-    }
+        sim->getJointPositions(letterNames[i], letters[i]->_q);
+        sim->getJointVelocities(letterNames[i], letters[i]->_dq);
+        letters[i]->updateKinematics();
 
-    sim->getJointPositions("mailbox", mailbox->_q);
-    sim->getJointVelocities("mailbox", mailbox->_dq);
-    mailbox->updateKinematics();
+        sim->getJointPositions(mailboxNames[i], mailboxes[i]->_q);
+        sim->getJointVelocities(mailboxNames[i], mailboxes[i]->_dq);
+        mailboxes[i]->updateKinematics();
+    }
 
     /*------- Set up visualization -------*/
     // set up error callback
@@ -190,7 +191,7 @@ int main() {
 	redis_client.set(CONTROLLER_LOOP_DONE_KEY, bool_to_string(fControllerLoopDone));
 
     fSimulationRunning = true;
-    thread sim_thread(simulation, robot, letters, letterNames, mailbox, sim, ui_force_widget);
+    thread sim_thread(simulation, robot, letters, letterNames, mailboxes, mailboxNames, sim, ui_force_widget);
     //thread sim_thread(simulation, robot, letter, mailbox, sim, ui_force_widget);
     // thread sim_thread(simulation, robot, sim, ui_force_widget);
     
@@ -203,8 +204,8 @@ int main() {
         graphics->updateGraphics(robot_name, robot);
         for (int i = 0; i < NUM_LETTERS; i++) {
             graphics->updateGraphics(letterNames[i], letters[i]);
+            graphics->updateGraphics(mailboxNames[i], mailboxes[i]);
         }
-        graphics->updateGraphics("mailbox", mailbox);
         force_display->update();
         graphics->render(camera_name, width, height);
 
@@ -325,7 +326,7 @@ int main() {
 }
 
 //------------------------------------------------------------------------------
-void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
+void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, vector<Sai2Model::Sai2Model*> mailboxes, vector<string> mailboxNames, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 //void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 // void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 
@@ -350,7 +351,8 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
     state_vector.setZero();
     redis_client.setEigenMatrixJSON(ROBOT_STATE, state_vector);
     bool mailGripped = false;
-    bool mailPlaced = false;
+    int letterIdx = 0;
+    bool updateLetterIdx = true;
     Vector3d camera_pos, mailbox_pos;  // init camera detection variables 
     Matrix3d camera_ori;
     bool detect;
@@ -371,11 +373,11 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
     Eigen::Vector3d sensed_moment;
 
     // Update lid position 
-    mailbox->_q(0) = 0;
-    sim->setJointPositions("mailbox", mailbox->_q);
-    mailbox->updateModel();
-
-
+    for (int i = 0; i < NUM_LETTERS; i++) {
+        mailboxes[i]->_q(0) = 0;
+        sim->setJointPositions(mailboxNames[i], mailboxes[i]->_q);
+        mailboxes[i]->updateModel();
+    }
 
     while (fSimulationRunning) {
         if (fControllerLoopDone || fRobotLinkSelect) {
@@ -462,7 +464,9 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
                 // }
 
+            } else if (!updateLetterIdx && state_vector(0) == WAIT_FOR_BOX) {
                 updateLetterIdx = true;
+                mailGripped = false;
             } else if(!mailGripped && state_vector(0) != PLACE_MAIL) {
                 letters[letterIdx]->_q(1) = -robot->_q(0);
                 sim->setJointPositions(letterNames[letterIdx], letters[letterIdx]->_q);
@@ -476,10 +480,13 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 sim->setJointVelocities(letterNames[letterIdx], letter_vel);
             } else if (state_vector(0) == RETRACT_ARM) {
                 if (updateLetterIdx) {
-                    letterIdx++;
-                    updateLetterIdx = false;
+                    if (letterIdx + 1 < letters.size()) {
+                        // occurs if there are houses remaining
+                        letterIdx++;
+                        updateLetterIdx = false;
+                    }
                 } else {
-                    double letter_offset = 0.2;
+                    double letter_offset = 0.2 * (letterIdx);
                     if (letters[letterIdx]->_q(0) < letter_offset) {
                         for (int i = letterIdx; i < NUM_LETTERS; i++) {
                             letters[i]->_q(0) += 0.0005;
@@ -498,6 +505,7 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
             }
             letters[letterIdx]->updateModel();
 
+            // handle letters that are waiting
             for (int i = letterIdx + 1; i < NUM_LETTERS; i++) {
                 letters[i]->_q(1) = -robot->_q(0);
                 sim->setJointPositions(letterNames[i], letters[i]->_q);
@@ -507,55 +515,36 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 letters[i]->updateModel();
             }
 
-
-            // if (state_vector(0) == OPEN_BOX || state_vector(0) == CLOSE_BOX) {
-            //     sim->getJointPositions("mailbox", mailbox->_q);
-            //     sim->getJointVelocities("mailbox", mailbox->_dq);
-            //     mailbox->updateModel();
-            // } else if (state_vector(0) == PLACE_MAIL || state_vector(0) == GRAB_MAIL) {
-            //     mailbox->_q(0) = -1.57;
-            //     sim->setJointPositions("mailbox", mailbox->_q);
-            //     VectorXd lid_vel(mailbox->dof());
-            //     lid_vel.setZero();
-            //     sim->setJointVelocities("mailbox", lid_vel);
-            //     mailbox->updateModel();
-            // } else {
-            //     mailbox->_q(0) = 0;
-            //     sim->setJointPositions("mailbox", mailbox->_q);
-            //     VectorXd lid_vel(mailbox->dof());
-            //     lid_vel.setZero();
-            //     sim->setJointVelocities("mailbox", lid_vel);
-            //     mailbox->updateModel(); 
-            // }
-
+            // update mailbox simulations
             if (state_vector(0) == WAIT_FOR_BOX) {
-                mailbox->_q(0) = 0;
-                sim->setJointPositions("mailbox", mailbox->_q);
-                VectorXd lid_vel(mailbox->dof());
+                mailboxes[letterIdx]->_q(0) = 0;
+                sim->setJointPositions(mailboxNames[letterIdx], mailboxes[letterIdx]->_q);
+                VectorXd lid_vel(mailboxes[letterIdx]->dof());
                 lid_vel.setZero();
-                sim->setJointVelocities("mailbox", lid_vel);
+                sim->setJointVelocities(mailboxNames[letterIdx], lid_vel);
+                freezeLid = false;
             } else if (state_vector(0) == OPEN_BACKOUT_MESSAGE_ENCODING) {
-                mailbox->_q(0) = -M_PI/2;
-                sim->setJointPositions("mailbox", mailbox->_q);
-                VectorXd lid_vel(mailbox->dof());
+                mailboxes[letterIdx]->_q(0) = -M_PI/2;
+                sim->setJointPositions(mailboxNames[letterIdx], mailboxes[letterIdx]->_q);
+                VectorXd lid_vel(mailboxes[letterIdx]->dof());
                 lid_vel.setZero();
-                sim->setJointVelocities("mailbox", lid_vel);
+                sim->setJointVelocities(mailboxNames[letterIdx], lid_vel);
             } else {
-                if (state_vector(0) == RETRACT_ARM || state_vector(0) == CLOSE_BOX && mailbox->_q(0) > 0) {
+                if (state_vector(0) == RETRACT_ARM || state_vector(0) == CLOSE_BOX && mailboxes[letterIdx]->_q(0) > 0) {
                     freezeLid = true;
                 }
                 if (freezeLid) {
-                    mailbox->_q(0) = 0;
-                    sim->setJointPositions("mailbox", mailbox->_q);
-                    VectorXd lid_vel(mailbox->dof());
+                    mailboxes[letterIdx]->_q(0) = 0;
+                    sim->setJointPositions(mailboxNames[letterIdx], mailboxes[letterIdx]->_q);
+                    VectorXd lid_vel(mailboxes[letterIdx]->dof());
                     lid_vel.setZero();
-                    sim->setJointVelocities("mailbox", lid_vel);
+                    sim->setJointVelocities(mailboxNames[letterIdx], lid_vel);
                 } else {
-                    sim->getJointPositions("mailbox", mailbox->_q);
-                    sim->getJointVelocities("mailbox", mailbox->_dq);
+                    sim->getJointPositions(mailboxNames[letterIdx], mailboxes[letterIdx]->_q);
+                    sim->getJointVelocities(mailboxNames[letterIdx], mailboxes[letterIdx]->_dq);
                 }
             }
-            mailbox->updateModel();
+            mailboxes[letterIdx]->updateModel();
 
             
 
@@ -569,8 +558,8 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 // write new robot state to redis
                 redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
                 redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
-                redis_client.setEigenMatrixJSON(MAILBOX_JOINT_ANGLES_KEY, mailbox->_q);
-                redis_client.setEigenMatrixJSON(MAILBOX_JOINT_VELOCITIES_KEY, mailbox->_dq);
+                redis_client.setEigenMatrixJSON(MAILBOX_JOINT_ANGLES_KEY, mailboxes[letterIdx]->_q);
+                redis_client.setEigenMatrixJSON(MAILBOX_JOINT_VELOCITIES_KEY, mailboxes[letterIdx]->_dq);
                 redis_client.setEigenMatrixJSON(EE_FORCE_KEY, sensed_force);
                 redis_client.setEigenMatrixJSON(EE_MOMENT_KEY, sensed_moment);
 
