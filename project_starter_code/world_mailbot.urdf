@@ -166,7 +166,7 @@
     <static_object name="grass">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <visual>
-            <origin xyz="0 5.5 -0.25" rpy="1.57 0 0" />
+            <origin xyz="20 5.5 -0.25" rpy="1.57 0 0" />
             <geometry>
                 <mesh filename="./resources/../../../model/project_models/grass.obj" scale="1 1 1"/>
             </geometry>
@@ -176,7 +176,7 @@
     <static_object name="grass2">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <visual>
-            <origin xyz="0 -9.5 -0.25" rpy="1.57 0 0" />
+            <origin xyz="20 -9.5 -0.25" rpy="1.57 0 0" />
             <geometry>
                 <mesh filename="./resources/../../../model/project_models/grass.obj" scale="1 1 1"/>
             </geometry>
@@ -253,6 +253,16 @@
         </visual>
     </static_object>
 
+    <static_object name="big_house6">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <visual>
+            <origin xyz="22 -8 0" rpy="1.57 0 3.1416" />
+            <geometry>
+                <mesh filename="./resources/../../../model/project_models/bighouse2.obj" scale=".009 .009 .009"/>
+            </geometry>
+        </visual>
+    </static_object>
+
     <static_object name="tree">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <visual>
@@ -286,9 +296,9 @@
     <static_object name="tree4">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <visual>
-            <origin xyz="10 -9 0" rpy="1.7 0 0" />
+            <origin xyz="27 -9 0" rpy="1.7 0 0" />
             <geometry>
-                <mesh filename="./resources/../../../model/project_models/tree.obj" scale=".25 .25 .25"/>
+                <mesh filename="./resources/../../../model/project_models/tree.obj" scale=".35 .35 .35"/>
             </geometry>
         </visual>
     </static_object>
