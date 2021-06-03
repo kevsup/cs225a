@@ -2,6 +2,9 @@
 
 This repository contains the code for the simulation of robotic mail delivery. Video demo: https://www.youtube.com/watch?v=3RRNnR1ZjW8r
 
+The controller code is in project_starter_code/controller.cpp
+The visualization code is in project_starter_code/simviz.cpp
+
 ## Dependencies
 The project depends on the sai2 libraries from Stanford.
 
