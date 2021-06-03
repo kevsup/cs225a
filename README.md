@@ -1,4 +1,5 @@
-# cs225a
+# Robotic mail delivery project (CS225A)
+Teammates: Kevin Supakkul, Andrew Brooks, Carolyn Kim
 
 This repository contains the code for the simulation of robotic mail delivery. Video demo: https://www.youtube.com/watch?v=3RRNnR1ZjW8r
 
