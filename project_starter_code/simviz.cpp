@@ -41,7 +41,6 @@ ForceSensorDisplay* force_display;
 
 // simulation function prototype
 void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, vector<Sai2Model::Sai2Model*> mailboxes, vector<string> mailboxNames, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
-//void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Sai2Model::Sai2Model* mailbox, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget);
 
 // callback to print glfw errors
 void glfwError(int error, const char* description);
@@ -102,9 +101,6 @@ int main() {
     graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
     graphics->getCamera(camera_name)->setClippingPlanes(0.1,20);
 
-    //cout << "\n\n\nnear plane = " << graphics->getCamera(camera_name)->getNearClippingPlane() << endl;;
-    //cout << "\n\n\nfar plane = " << graphics->getCamera(camera_name)->getFarClippingPlane() << endl;;
-
     camera_pos_init = camera_pos;
     camera_lookat_init = camera_lookat;
 
@@ -137,8 +133,6 @@ int main() {
     // load simulation world
     auto sim = new Simulation::Sai2Simulation(world_file, false);
     sim->setCollisionRestitution(0.0);
-    //sim->setCoeffFrictionStatic(0.6);
-    //sim->setCoeffFrictionDynamic(0.5);
     sim->setCoeffFrictionStatic(10);
     sim->setCoeffFrictionDynamic(10);
 
@@ -207,8 +201,6 @@ int main() {
 
     fSimulationRunning = true;
     thread sim_thread(simulation, robot, letters, letterNames, mailboxes, mailboxNames, sim, ui_force_widget);
-    //thread sim_thread(simulation, robot, letter, mailbox, sim, ui_force_widget);
-    // thread sim_thread(simulation, robot, sim, ui_force_widget);
     
     // while window is open:
     while (!glfwWindowShouldClose(window) && fSimulationRunning)
@@ -347,8 +339,6 @@ int main() {
 
 //------------------------------------------------------------------------------
 void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> letters, vector<string> letterNames, vector<Sai2Model::Sai2Model*> mailboxes, vector<string> mailboxNames, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
-//void simulation(Sai2Model::Sai2Model* robot, Sai2Model::Sai2Model* letter, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
-// void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim, UIForceWidget *ui_force_widget) {
 
     int dof = robot->dof();
     VectorXd command_torques = VectorXd::Zero(dof);
@@ -375,10 +365,6 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
     bool updateLetterIdx = true;
     bool freezeBox = false;
 
-    /*
-    Vector3d camera_pos, mailbox_pos;  // init camera detection variables 
-    Matrix3d camera_ori;
-    */
 
     bool detect;
 
@@ -458,40 +444,6 @@ void simulation(Sai2Model::Sai2Model* robot, vector<Sai2Model::Sai2Model*> lette
                 break;
             }
             if (state_vector(0) == SCAN_FOR_BOX){
-
-                // // Update lid position 
-                // // sim->getJointPositions("mailbox", mailbox->_q);
-                // // mailbox->_q(0) = -1.57;
-                // // sim->setJointPositions("mailbox", mailbox->_q);
-                // // mailbox->updateModel();
-
-               
-                // // query object position and ee pos/ori for camera detection 
-                // mailbox->positionInWorld(mailbox_pos, "link0");
-                // robot->positionInWorld(camera_pos, "link7");
-                // robot->rotationInWorld(camera_ori, "link7");  // local to world frame 
-
-
-                // // add position offset in world.urdf file since positionInWorld() doesn't account for this 
-                // mailbox_pos += mailbox_offset;
-                // camera_pos += robot_offset;  // camera position/orientation is set to the panda's last link
-
-                // // object camera detect 
-                // detect = cameraFOV(mailbox_pos, camera_pos, camera_ori, 2.0, M_PI);
-                // if (detect == true) {
-                //     /*mailbox_pos(0) += dist(generator);  // add white noise 
-                //     mailbox_pos(1) += dist(generator);
-                //     mailbox_pos(2) += dist(generator);*/
-                //     VectorXd detection_vector(1);
-                //     detection_vector(0) = 1;
-                //     redis_client.setEigenMatrixJSON(DETECTION_STATE, detection_vector);
-                //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, true_message);
-                //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(mailbox_pos));
-                // }
-                // else {
-                //     redis_data.at(0) = std::pair<string, string>(CAMERA_DETECT_KEY, false_message);
-                //     redis_data.at(1) = std::pair<string, string>(CAMERA_OBJ_POS_KEY, redis_client.encodeEigenMatrixJSON(Vector3d::Zero()));
-                // }
                 lock_guard<mutex> guard(camera_lock);
                 camera_pos = camera_pos_init;
                 camera_pos(0) += HOUSE_OFFSET * (1 + letterIdx);

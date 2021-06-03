@@ -1,7 +1,3 @@
-// This example application loads a URDF world file and simulates two robots
-// with physics and contact in a Dynamics3D virtual world. A graphics model of it is also shown using 
-// Chai3D.
-
 #include "Sai2Model.h"
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
@@ -22,11 +18,6 @@ bool fControllerLoopDone = false;
 
 using namespace std;
 using namespace Eigen;
-
-
-#define JOINT_CONTROLLER      0
-#define POSORI_CONTROLLER     1
-//int state = POSORI_CONTROLLER;
 
 // function for converting string to bool
 bool string_to_bool(const std::string& x);
@@ -104,24 +95,6 @@ int main() {
     VectorXd command_torques = VectorXd::Zero(dof);
     MatrixXd N_prec = MatrixXd::Identity(dof, dof);
 
-/*
-    // pose task
-    auto posori_task = new Sai2Primitives::PosOriTask(robot, CONTROL_LINK, CONTROL_POINT);
-
-
-#ifdef USING_OTG
-    posori_task->_use_interpolation_flag = true;
-#else
-    posori_task->_use_velocity_saturation_flag = true;
-#endif
-    
-    VectorXd posori_task_torques = VectorXd::Zero(dof);
-    posori_task->_kp_pos = 200.0;
-    posori_task->_kv_pos = 20.0;
-    posori_task->_kp_ori = 200.0;
-    posori_task->_kv_ori = 20.0;
-*/
-
     // joint task
     auto joint_task = new Sai2Primitives::JointTask(robot);
 
@@ -184,15 +157,6 @@ int main() {
             switch (state) {
                 case WAIT_FOR_BOX:
                 {
-                    /*
-                    // maybe use pre-made joint space controller for this, but need to remove USING_OTG
-                    joint_task->updateTaskModel(N_prec);
-                    joint_task->_desired_position = q_desired;
-                    joint_task->computeTorques(joint_task_torques);
-                    command_torques = joint_task_torques;
-                    //cout << "step_des_pos = " << joint_task->_step_desired_position << endl;
-                    */
-
                     // Action: driving
                     q_desired = initial_q;
                     q_desired(0) = houseX[houseIdx];
@@ -215,29 +179,11 @@ int main() {
                     } else {
                         scanCounter++;
                     }
-                    // detection_vector = redis_client.getEigenMatrixJSON(DETECTION_STATE);
-                    // if (detection_vector(0) == 1){
-                    //     cout << "Next: open box!!!!" << endl;
-                    // 	state = OPEN_BOX;
-                    // } else {
-                    // 	// move end effector
-                    //     double angle = -45 * M_PI / 180;
-                    //     Matrix3d Rd;
-                    //     Rd << -cos(angle), -sin(angle), 0, -sin(angle), cos(angle), 0, 0, 0, -1;
-                    //     Matrix3d rot;
-                    //     rot << 0, 1, 0, 0, 0, -1, -1, 0, 0;
-                    //     Rd = rot * Rd;
-                    //     Vector3d xd = Vector3d(5.8, 0.35, 0.66);
-                    //     VectorXd qd = q_desired;
-                    //     qd(TRUCK_JTS) += M_PI;
-                    //     moveArm(xd, Rd, qd, command_torques, robot);
-                    // }
                     break;
                 }
                 case OPEN_BOX:
                 {
                     openBoxStateMachine(robot, q_desired, command_torques, grip_time_init,  time, initial_q);
-                    // state = GRAB_MAIL;
                     break;
                 }
                 case GRAB_MAIL:
@@ -258,7 +204,6 @@ int main() {
                 }
                 case RETRACT_ARM:
                 {
-                    // placeholder code. Keeps robot from looping through states
                     q_desired << q_desired.head(TRUCK_JTS), initial_q.segment(TRUCK_JTS, ARM_JTS + GRIP_JTS);
                     moveTruck(q_desired, command_torques, robot, time);
 
@@ -277,50 +222,6 @@ int main() {
                     cout << "I am stateless :(" << endl;
                 }
             }
-
-    /*  
-            if(state == JOINT_CONTROLLER)
-            {
-                // update task model and set hierarchy
-                N_prec.setIdentity();
-                joint_task->updateTaskModel(N_prec);
-
-                // compute torques
-                joint_task->computeTorques(joint_task_torques);
-
-                command_torques = joint_task_torques;
-
-                if( (robot->_q - q_init_desired).norm() < 0.15 )
-                {
-                    posori_task->reInitializeTask();
-                    posori_task->_desired_position += Vector3d(-0.1,0.1,0.1);
-                    posori_task->_desired_orientation = AngleAxisd(M_PI/6, Vector3d::UnitX()).toRotationMatrix() * posori_task->_desired_orientation;
-
-                    joint_task->reInitializeTask();
-                    joint_task->_kp = 0;
-
-                    state = POSORI_CONTROLLER;
-                }
-            }
-
-            else if(state == POSORI_CONTROLLER)
-            {
-                // update task model and set hierarchy
-                N_prec.setIdentity();
-                posori_task->updateTaskModel(N_prec);
-                N_prec = posori_task->_N;
-                joint_task->updateTaskModel(N_prec);
-
-                // compute torques
-                posori_task->computeTorques(posori_task_torques);
-                joint_task->computeTorques(joint_task_torques);
-
-                //command_torques = posori_task_torques + joint_task_torques;
-                command_torques = posori_task_torques;
-                for (int i = 1; i < 11; i++) command_torques(i) = 0;
-                cout << command_torques << endl;
-            }
-    */
 
             // send to redis
             redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
@@ -592,15 +493,6 @@ void grabMailStateMachine(Sai2Model::Sai2Model* &robot, VectorXd &q_desired, Vec
             q_desired(11) = 0;
             command_torques = robot->_M * (-kp * (robot->_q - q_desired) - kv * robot->_dq);  
 
-            /* 
-            Matrix3d R;
-            robot->rotation(R, "link7");
-            cout << "R = " << R << endl;
-            Vector3d x;
-            robot->position(x, "link7", CONTROL_POINT);
-            cout << "x = " << x << endl;
-            */
-           
             // grip for a fixed amount of time
             if (time - grip_time_init > 1) {
                 mail_state = MOVE_OVERHEAD;
@@ -708,8 +600,8 @@ void moveArm(VectorXd xd, Matrix3d &Rd, VectorXd &qd, VectorXd &command_torques,
     double kv = 20;
     double kpj = 200;   // for posture / joint space control
     double kvj = 50;
-    double kpg = state == PLACE_MAIL ? 1000 : 900;   // for gripper
-    double kvg = state == PLACE_MAIL ? 63 : 60;
+    double kpg = state == PLACE_MAIL && houseIdx == 1 ? 1000 : 625;   // for gripper
+    double kvg = state == PLACE_MAIL && houseIdx == 1 ? 63 : 50;
 
     Vector3d x, x_dot;
     robot->position(x, CONTROL_LINK, CONTROL_POINT);
