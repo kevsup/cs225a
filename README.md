@@ -6,6 +6,8 @@ This repository contains the code for the simulation of robotic mail delivery. V
 The controller code is in project_starter_code/controller.cpp
 The visualization code is in project_starter_code/simviz.cpp
 
+Algorithms used: operation/task space control, posture/null space control (redundancy), force compliance control, joint space control, velocity saturation, and finite state machine.
+
 ## Dependencies
 The project depends on the sai2 libraries from Stanford.
 
