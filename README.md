@@ -8,6 +8,10 @@ The visualization code is in [project_starter_code/simviz.cpp](https://github.co
 
 Algorithms used: operation/task space control, posture/null space control (redundancy), force compliance control, joint space control, velocity saturation, and finite state machine.
 
+## Diagrams and Written Report
+See the written report [here.](https://github.com/kevsup/cs225a/blob/master/Mailbot_written_report.pdf)
+See diagrams and slides here.
+
 ## Dependencies
 The project depends on the sai2 libraries from Stanford.
 
