@@ -3,8 +3,8 @@ Teammates: Kevin Supakkul, Andrew Brooks, Carolyn Kim
 
 This repository contains the code for the simulation of robotic mail delivery. Video demo: https://www.youtube.com/watch?v=3RRNnR1ZjW8r
 
-The controller code is in project_starter_code/controller.cpp
-The visualization code is in project_starter_code/simviz.cpp
+The controller code is in [project_starter_code/controller.cpp](https://github.com/kevsup/cs225a/blob/master/project_starter_code/controller.cpp)
+The visualization code is in [project_starter_code/simviz.cpp](https://github.com/kevsup/cs225a/blob/master/project_starter_code/simviz.cpp)
 
 Algorithms used: operation/task space control, posture/null space control (redundancy), force compliance control, joint space control, velocity saturation, and finite state machine.
 
