@@ -10,7 +10,7 @@ Algorithms used: operation/task space control, posture/null space control (redun
 
 ## Diagrams and Written Report
 See the written report [here.](https://github.com/kevsup/cs225a/blob/master/Mailbot_written_report.pdf)
-See diagrams and slides here.
+See diagrams and slides [here.](https://github.com/kevsup/cs225a/blob/master/Mailbot_slides.pdf)
 
 ## Dependencies
 The project depends on the sai2 libraries from Stanford.
